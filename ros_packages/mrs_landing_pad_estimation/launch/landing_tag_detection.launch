@@ -27,7 +27,7 @@
       <remap from="~tag_detections_in" to="tag_detections" />
 
       <!-- publishers -->
-      <remap from="~estimated_pose_out" to="~estimated_pose" />
+      <remap from="~estimated_pose_out" to="~pose_estimate" />
 
     </node>
 

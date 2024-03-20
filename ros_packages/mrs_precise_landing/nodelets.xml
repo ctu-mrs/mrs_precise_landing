@@ -1,0 +1,5 @@
+<library path="lib/libMrsPreciseLanding_PreciseLanding">
+  <class name="mrs_precise_landing/PreciseLanding" type="mrs_precise_landing::PreciseLanding" base_class_type="nodelet::Nodelet">
+    <description>PreciseLanding nodelet</description>
+  </class>
+</library>

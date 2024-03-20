@@ -1,0 +1,61 @@
+# rate of publishing the trajectory
+rate: 100.0 # [Hz]
+
+# sampling of the trajectory
+trajectory_dt: 0.20 # [s]
+
+controller: "Se3Controller"
+
+stages:
+
+  aligning:
+    speed: 1.0 # [m/s]
+    height: 2.0 # [m]
+    radius: 0.2 # [m]
+    timeout: 10.0 # [s]
+
+  descending:
+    speed: 0.3 # [m/s]
+    height: 0.8 # [m]
+    timeout: 10.0 # [s]
+
+  aligning2:
+
+    timeout: 10.0 # [s]
+
+    criterion:
+      initial_x: 0.03 # [m], +-
+      initial_y: 0.03 # [m], +-
+      x_increase_rate: 0.01 # [m/s]
+      y_increase_rate: 0.007 # [m/s]
+
+    in_alignment_duration: 0.5 # [s]
+    alignment_criterion: 1 # {0 = control_error, 1 = pad detection}
+
+  landing:
+    timeout: 7.0 # [s]
+    speed: 0.25 # [m/s]
+    height: -1.0 # [m], this is relative to the tracker_cmdk
+    repeat_threshold: 11 # [-]
+
+    thrust_limiter:
+      enabled: true
+      thrust_ratio: 0.9
+      thrust_timeout: 0.10
+
+  repeating:
+    height: 2.0 # [m]
+    speed: 1.5 # [m/s]
+
+  ascending:
+    speed: 0.5 # [m/s]
+    height: 2.0 # [m]
+
+# the number of times of loosing alignment during landing which is tolerated
+loosing_alignment_threshold: 5.0
+
+# time after we stop waiting for a lost pad
+object_visibility_timeout: 1.0
+
+# uav tilt limit
+tilt_limit: 30.0 # [deg]

@@ -1,30 +1,21 @@
-cmake_minimum_required(VERSION 3.5)
-project(mrs_landing_pad_estimation)
+cmake_minimum_required(VERSION 3.1.2)
+project(mrs_precise_landing)
 
 set(LIBRARIES
-  MrsLandingPadEstimation_LandingPadEstimation
+  MrsPreciseLanding_PreciseLanding
   )
 
 set(CATKIN_DEPENDENCIES
   cmake_modules
+  roscpp
   geometry_msgs
   mrs_lib
-  mrs_msgs
-  nav_msgs
   nodelet
-  roscpp
-  sensor_msgs
-  std_msgs
-  tf2
-  tf2_ros
-  apriltag_ros
+  mrs_msgs
   )
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-add_definitions(-Wall)
-add_definitions(-Wextra)
 
 find_package(Eigen3 REQUIRED)
 set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
@@ -34,26 +25,31 @@ find_package(catkin REQUIRED COMPONENTS
   ${CATKIN_DEPENDENCIES}
   )
 
+find_package(Eigen3 REQUIRED)
+set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
+set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
+
 catkin_package(
   CATKIN_DEPENDS ${CATKIN_DEPENDENCIES}
-  LIBRARIES ${LIBRARIES}
   DEPENDS Eigen
+  LIBRARIES ${LIBRARIES}
   )
 
 include_directories(
   ${catkin_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
   )
 
-# LandingPadEstimation
+# PreciseLanding
 
-add_library(MrsLandingPadEstimation_LandingPadEstimation src/landing_pad_estimation.cpp)
+add_library(MrsPreciseLanding_PreciseLanding src/precise_landing.cpp)
 
-add_dependencies(MrsLandingPadEstimation_LandingPadEstimation
+add_dependencies(MrsPreciseLanding_PreciseLanding
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   )
 
-target_link_libraries(MrsLandingPadEstimation_LandingPadEstimation
+target_link_libraries(MrsPreciseLanding_PreciseLanding
   ${catkin_LIBRARIES}
   ${Eigen_LIBRARIES}
   )
