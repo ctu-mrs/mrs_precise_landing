@@ -1,0 +1,36 @@
+<launch>
+
+  <arg name="UAV_NAME" default="$(optenv UAV_NAME uav1)"/>
+  <arg name="LOGGER_DEBUG" default="$(optenv LOGGER_DEBUG false)"/>
+  <arg name="debug" default="false" />
+  <arg name="standalone" default="true" />
+
+  <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
+  <arg unless="$(arg standalone)" name="nodelet" value="load"/>
+  <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
+  <arg unless="$(arg standalone)" name="nodelet_manager" value="$(arg UAV_NAME)_nodelet_manager"/>
+
+  <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch"/>
+  <arg unless="$(arg debug)" name="launch_prefix" value=""/>
+
+  <env name="ROSCONSOLE_CONFIG_FILE" if="$(eval arg('LOGGER_DEBUG'))" value="$(find mrs_landing_pad_estimation)/config/debug_verbosity.yaml" />
+
+  <group ns="$(arg UAV_NAME)">
+
+    <node pkg="nodelet" type="nodelet" name="landing_pad_estimation" args="$(arg nodelet) mrs_landing_pad_estimation/LandingPadEstimation $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
+
+      <rosparam file="$(find mrs_landing_pad_estimation)/config/landing_pad_estimation.yaml" />
+
+      <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
+
+      <!-- subscribers -->
+      <remap from="~tag_detections_in" to="tag_detections" />
+
+      <!-- publishers -->
+      <remap from="~estimated_pose_out" to="~estimated_pose" />
+
+    </node>
+
+  </group>
+
+</launch>

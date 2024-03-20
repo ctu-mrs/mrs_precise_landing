@@ -1,0 +1,36 @@
+prediction_rate: 100.0 # [Hz]
+
+tag_id: 4 # [-]
+
+estimation_frame: "world_origin"
+
+correction_timeout: 5.0 # [s]
+
+lkf:
+
+  # state matrix
+  A: [1.0, 0, 0, 0,
+      0, 1.0, 0, 0,
+      0, 0, 1.0, 0,
+      0, 0, 0, 1.0]
+
+  # input matrix
+  B: []
+
+  # measurement noise
+  R: [0.1, 0, 0, 0,
+      0, 0.1, 0, 0,
+      0, 0, 0.1, 0,
+      0, 0, 0, 0.1]
+
+  # process covariance
+  Q: [1.0, 0, 0, 0,
+      0, 1.0, 0, 0,
+      0, 0, 1.0, 0,
+      0, 0, 0, 1.0]
+
+  # measurement mapping
+  H: [1.0, 0, 0, 0,
+      0, 1.0, 0, 0,
+      0, 0, 1.0, 0,
+      0, 0, 0, 1.0]

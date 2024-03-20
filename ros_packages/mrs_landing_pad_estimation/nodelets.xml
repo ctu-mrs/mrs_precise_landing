@@ -1,0 +1,5 @@
+<library path="lib/libMrsLandingPadEstimation_LandingPadEstimation">
+  <class name="mrs_landing_pad_estimation/LandingPadEstimation" type="mrs_landing_pad_estimation::LandingPadEstimation" base_class_type="nodelet::Nodelet">
+    <description>LandingPadEstimation nodelet</description>
+  </class>
+</library>
