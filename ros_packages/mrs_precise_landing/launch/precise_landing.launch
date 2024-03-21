@@ -32,8 +32,8 @@
 
       <!-- Service callers -->
 
-      <remap from="~toggle_output_out" to="control_manager/toggle_output" />
       <remap from="~switch_controller_out" to="control_manager/switch_controller" />
+      <remap from="~arming_out" to="control_manager/arm" />
 
       <!-- Advertised services -->
 

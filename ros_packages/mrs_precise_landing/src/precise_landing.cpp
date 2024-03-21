@@ -15,6 +15,7 @@
 #include <mrs_lib/service_client_handler.h>
 
 #include <std_srvs/Trigger.h>
+#include <std_srvs/SetBool.h>
 
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 
@@ -49,7 +50,7 @@ using sradians = mrs_lib::geometry::sradians;
 #define ANGLE 3
 
 #define ALIGNMENT_CRITERION_CONTROL_ERROR 0
-#define ALIGNMENT_CRITERION_BRICK_DETECTION 1
+#define ALIGNMENT_CRITERION_PAD_DETECTION 1
 
 //}
 
@@ -69,8 +70,8 @@ typedef enum
   IDLE_STATE,
   ALIGN_STATE,
   DESCEND_STATE,
-  ALIGN2_GRASP_STATE,
-  GRASP_STATE,
+  ALIGN2_STATE,
+  LANDING_STATE,
   REPEAT_STATE,
   ASCEND_STATE,
   ABORT_STATE,
@@ -78,7 +79,7 @@ typedef enum
 } States_t;
 
 const char *state_names[8] = {
-    "IDLING", "ALIGNING", "DESCENDING", "ALIGNING 2 FOR GRASPING", "GRASPING", "REPEATING", "ASCENDING", "ABORTING",
+    "IDLING", "ALIGNING", "DESCENDING", "ALIGNING2", "LANDING", "REPEATING", "ASCENDING", "ABORTING",
 };
 
 // trajectory types
@@ -87,7 +88,7 @@ const char *state_names[8] = {
   ALIGN_TRAJECTORY,
   DESCEND_TRAJECTORY,
   ASCEND_TRAJECTORY,
-  GRASPING_TRAJECTORY,
+  LANDING_TRAJECTORY,
   REPEAT_TRAJECTORY,
   ABORT_TRAJECTORY,
 
@@ -130,7 +131,7 @@ private:
   ros::ServiceServer service_servcer_stop_;
 
   mrs_lib::ServiceClientHandler<mrs_msgs::String>  sch_switch_controller_;
-  mrs_lib::ServiceClientHandler<std_srvs::Trigger> sch_switch_hover_;
+  mrs_lib::ServiceClientHandler<std_srvs::SetBool> sch_arming_;
 
   // params loaded from config file
   double _trajectory_dt_;
@@ -139,7 +140,7 @@ private:
 
   ros::Time timeouter_;
 
-  // aligning_grasping params
+  // aligning params
   double _aligning_speed_;
   double _aligning_height_;
   double _aligning_radius_;
@@ -150,35 +151,28 @@ private:
   double _descending_timeout_;
   double _descending_height_;
 
-  // aligning2_grasping params
-  double _aligning2_grasping_timeout_;
+  // aligning2 params
+  double _aligning2_timeout_;
 
-  double _aligning2_grasping_criterion_initial_x_;
-  double _aligning2_grasping_criterion_initial_y_;
-  double _aligning2_grasping_criterion_increase_rate_x_;
-  double _aligning2_grasping_criterion_increase_rate_y_;
+  double _aligning2_criterion_initial_x_;
+  double _aligning2_criterion_initial_y_;
+  double _aligning2_criterion_increase_rate_x_;
+  double _aligning2_criterion_increase_rate_y_;
 
   double _aligning2_in_alignment_duration_;
-  int    _aligning2_grasping_alignment_criterion_;
+  int    _aligning2_alignment_criterion_;
 
   ros::Time aligning2_in_radius_time_;
   bool      aligning2_in_radius_ = false;
   double    aligning2_current_x_crit_;
   double    aligning2_current_y_crit_;
 
-  // grasping params
+  // landing params
   ros::Time landing_since_;
 
-  double _grasping_timeout_;
-  double _grasping_speed_;
-  double _grasping_height_;
-  int    _grasping_repeat_threshold_;
-
-  bool      _grasping_thrust_limiter_enabled_ = false;
-  double    _grasping_thrust_limiter_ratio_;
-  double    _grasping_thrust_timeout_;
-  bool      grasping_thrust_under_threshold_ = false;
-  ros::Time grasping_thrust_first_time_;
+  double _landing_speed_;
+  double _landing_height_;
+  int    _landing_repeat_threshold_;
 
   // repeating params
   double _repeating_speed_;
@@ -199,7 +193,8 @@ private:
   bool callbackStop(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
   void setController(std::string desired_controller);
-  void hover(void);
+
+  void disarm(void);
 
   bool alignedWithTarget(const double position_thr, const double heading_thr, Alignment_t mode);
   bool lastAlignmentCheck(void);
@@ -208,7 +203,7 @@ private:
 
   // state machine
   int current_state_, previous_state_;
-  int lost_alignment_counter, repeat_grasping_counter;
+  int lost_alignment_counter, repeat_landing_counter;
 
   ros::Timer state_machine_timer_;
   void       stateMachineTimer(const ros::TimerEvent &event);
@@ -239,7 +234,7 @@ void PreciseLanding::onInit() {
 
   param_loader.loadParam("trajectory_dt", _trajectory_dt_);
 
-  // aligning_grasping params
+  // aligning params
   param_loader.loadParam("stages/aligning/speed", _aligning_speed_);
   param_loader.loadParam("stages/aligning/height", _aligning_height_);
   param_loader.loadParam("stages/aligning/radius", _aligning_radius_);
@@ -250,19 +245,18 @@ void PreciseLanding::onInit() {
   param_loader.loadParam("stages/descending/timeout", _descending_timeout_);
   param_loader.loadParam("stages/descending/height", _descending_height_);
 
-  // aligning2_grasping params
-  param_loader.loadParam("stages/aligning2/timeout", _aligning2_grasping_timeout_);
+  // aligning2 params
+  param_loader.loadParam("stages/aligning2/timeout", _aligning2_timeout_);
 
-  param_loader.loadParam("stages/aligning2/criterion/initial_x", _aligning2_grasping_criterion_initial_x_);
-  param_loader.loadParam("stages/aligning2/criterion/initial_y", _aligning2_grasping_criterion_initial_y_);
-  param_loader.loadParam("stages/aligning2/criterion/x_increase_rate", _aligning2_grasping_criterion_increase_rate_x_);
-  param_loader.loadParam("stages/aligning2/criterion/y_increase_rate", _aligning2_grasping_criterion_increase_rate_y_);
+  param_loader.loadParam("stages/aligning2/criterion/initial_x", _aligning2_criterion_initial_x_);
+  param_loader.loadParam("stages/aligning2/criterion/initial_y", _aligning2_criterion_initial_y_);
+  param_loader.loadParam("stages/aligning2/criterion/x_increase_rate", _aligning2_criterion_increase_rate_x_);
+  param_loader.loadParam("stages/aligning2/criterion/y_increase_rate", _aligning2_criterion_increase_rate_y_);
 
-  param_loader.loadParam("stages/aligning2/alignment_criterion", _aligning2_grasping_alignment_criterion_);
+  param_loader.loadParam("stages/aligning2/alignment_criterion", _aligning2_alignment_criterion_);
   param_loader.loadParam("stages/aligning2/in_alignment_duration", _aligning2_in_alignment_duration_);
 
-  if (!(_aligning2_grasping_alignment_criterion_ == ALIGNMENT_CRITERION_CONTROL_ERROR ||
-        _aligning2_grasping_alignment_criterion_ == ALIGNMENT_CRITERION_BRICK_DETECTION)) {
+  if (!(_aligning2_alignment_criterion_ == ALIGNMENT_CRITERION_CONTROL_ERROR || _aligning2_alignment_criterion_ == ALIGNMENT_CRITERION_PAD_DETECTION)) {
 
     ROS_ERROR("[PreciseLanding]: the chosen alignment criterion not valid!");
     ros::shutdown();
@@ -271,12 +265,12 @@ void PreciseLanding::onInit() {
 
     std::string criterion_name;
 
-    switch (_aligning2_grasping_alignment_criterion_) {
+    switch (_aligning2_alignment_criterion_) {
       case ALIGNMENT_CRITERION_CONTROL_ERROR: {
         criterion_name = "control error";
         break;
       }
-      case ALIGNMENT_CRITERION_BRICK_DETECTION: {
+      case ALIGNMENT_CRITERION_PAD_DETECTION: {
         criterion_name = "pad detection";
         break;
       }
@@ -285,15 +279,10 @@ void PreciseLanding::onInit() {
     ROS_INFO("[PreciseLanding]: alignment criterion: %s", criterion_name.c_str());
   }
 
-  // grasping params
-  param_loader.loadParam("stages/landing/timeout", _grasping_timeout_);
-  param_loader.loadParam("stages/landing/speed", _grasping_speed_);
-  param_loader.loadParam("stages/landing/height", _grasping_height_);
-  param_loader.loadParam("stages/landing/repeat_threshold", _grasping_repeat_threshold_);
-
-  param_loader.loadParam("stages/landing/thrust_limiter/enabled", _grasping_thrust_limiter_enabled_);
-  param_loader.loadParam("stages/landing/thrust_limiter/thrust_ratio", _grasping_thrust_limiter_ratio_);
-  param_loader.loadParam("stages/landing/thrust_limiter/thrust_timeout", _grasping_thrust_timeout_);
+  // landing params
+  param_loader.loadParam("stages/landing/speed", _landing_speed_);
+  param_loader.loadParam("stages/landing/height", _landing_height_);
+  param_loader.loadParam("stages/landing/repeat_threshold", _landing_repeat_threshold_);
 
   // repeating params
   param_loader.loadParam("stages/repeating/speed", _repeating_speed_);
@@ -325,6 +314,7 @@ void PreciseLanding::onInit() {
   // | --------------------- service clients -------------------- |
 
   sch_switch_controller_ = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "switch_controller_out");
+  sch_arming_            = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "arming_out");
 
   // | --------------------- sercice servers -------------------- |
 
@@ -367,8 +357,8 @@ void PreciseLanding::onInit() {
   current_state_  = IDLE_STATE;
   previous_state_ = IDLE_STATE;
 
-  lost_alignment_counter  = 0;
-  repeat_grasping_counter = 0;
+  lost_alignment_counter = 0;
+  repeat_landing_counter = 0;
 
   // | ------------------------- timers ------------------------- |
 
@@ -461,8 +451,8 @@ void PreciseLanding::changeState(int newState) {
 
     case IDLE_STATE:
 
-      lost_alignment_counter  = 0;
-      repeat_grasping_counter = 0;
+      lost_alignment_counter = 0;
+      repeat_landing_counter = 0;
 
       break;
 
@@ -486,24 +476,24 @@ void PreciseLanding::changeState(int newState) {
 
       //}
 
-      /* ALIGN2_GRASP_STATE //{ */
+      /* ALIGN2_STATE //{ */
 
-    case ALIGN2_GRASP_STATE:
+    case ALIGN2_STATE:
 
       aligning2_in_radius_time_ = ros::Time(0);
       aligning2_in_radius_      = false;
-      aligning2_current_x_crit_ = _aligning2_grasping_criterion_initial_x_;
-      aligning2_current_y_crit_ = _aligning2_grasping_criterion_initial_y_;
+      aligning2_current_x_crit_ = _aligning2_criterion_initial_x_;
+      aligning2_current_y_crit_ = _aligning2_criterion_initial_y_;
 
       break;
 
       //}
 
-      /* GRASP_STATE //{ */
+      /* LANDING_STATE //{ */
 
-    case GRASP_STATE:
+    case LANDING_STATE:
 
-      // log when we started the grasping
+      // log when we started the landing
       landing_since_ = ros::Time::now();
 
       break;
@@ -514,9 +504,9 @@ void PreciseLanding::changeState(int newState) {
 
     case REPEAT_STATE:
 
-      if (repeat_grasping_counter++ >= _grasping_repeat_threshold_) {
+      if (repeat_landing_counter++ >= _landing_repeat_threshold_) {
 
-        ROS_INFO("[PreciseLanding]: Exceeded the number of landing attemptes, going up");
+        ROS_INFO("[PreciseLanding]: Exceeded the number of landing attempts, going up");
 
         changeState(ABORT_STATE);
       }
@@ -599,6 +589,10 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
 
     /* double desired_height = _aligning_height_ > cmd_odom_stable.pose.position.z ? cmd_odom_stable.pose.position.z : _aligning_height_; */
     double desired_z = landing_pad_z + _aligning_height_;
+
+    if (desired_z > init_z) {
+      desired_z = init_z;
+    }
 
     double step_size = _aligning_speed_ * _trajectory_dt_;
     int    n_steps   = int(floor(target_distance / step_size));
@@ -750,15 +744,15 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
 
     //}
 
-    /* GRASPING_TRAJECTORY //{ */
+    /* LANDING_TRAJECTORY //{ */
 
-  } else if (trajectoryType == GRASPING_TRAJECTORY) {
+  } else if (trajectoryType == LANDING_TRAJECTORY) {
 
     double desired_heading = landing_pad_hdg;  // TODO
 
-    double target_distance = init_z - landing_pad_z - _grasping_height_;
+    double target_distance = init_z - landing_pad_z - _landing_height_;
     double direction       = -1;
-    double step_size       = _grasping_speed_ * _trajectory_dt_;
+    double step_size       = _landing_speed_ * _trajectory_dt_;
     int    n_steps         = int(floor(target_distance / step_size));
 
     // the first point
@@ -794,7 +788,7 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
 
       point.position.x = landing_pad_x;
       point.position.y = landing_pad_y;
-      point.position.z = init_z + _grasping_height_;
+      point.position.z = init_z + _landing_height_;
       point.heading    = desired_heading;
 
       trajectory.points.push_back(point);
@@ -910,20 +904,22 @@ void PreciseLanding::setController(std::string desired_controller) {
 
 //}
 
-/* hover() //{ */
+/* disarm() //{ */
 
-void PreciseLanding::hover(void) {
+void PreciseLanding::disarm(void) {
 
-  std_srvs::Trigger srv;
+  std_srvs::SetBool srv;
 
-  bool res = sch_switch_hover_.call(srv);
+  srv.request.data = false;
+
+  bool res = sch_arming_.call(srv);
 
   if (res) {
     if (!srv.response.success) {
-      ROS_WARN_THROTTLE(1.0, "[PreciseLanding]: service call for hover() returned false: %s", srv.response.message.c_str());
+      ROS_WARN_THROTTLE(1.0, "[PreciseLanding]: service call for arming() returned false: %s", srv.response.message.c_str());
     }
   } else {
-    ROS_ERROR("[PreciseLanding]: service call for hover() failed!");
+    ROS_ERROR("[PreciseLanding]: service call for arming() failed!");
   }
 }
 
@@ -1144,7 +1140,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
         ROS_INFO("[PreciseLanding]: correct height reached, ALIGNING for landing");
 
-        changeState(ALIGN2_GRASP_STATE);
+        changeState(ALIGN2_STATE);
       }
 
       break;
@@ -1152,11 +1148,11 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
       //}
 
-      /* ALIGN2_GRASP_STATE //{ */
+      /* ALIGN2_STATE //{ */
 
-    case ALIGN2_GRASP_STATE: {
+    case ALIGN2_STATE: {
 
-      if (shouldTimeout(_aligning2_grasping_timeout_)) {
+      if (shouldTimeout(_aligning2_timeout_)) {
 
         ROS_WARN("[PreciseLanding]: Aligning for landing took too long, ABORTING.");
 
@@ -1178,8 +1174,8 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
         changeState(ABORT_STATE);
       }
 
-      aligning2_current_x_crit_ += (1.0 / _main_rate_) * _aligning2_grasping_criterion_increase_rate_x_;
-      aligning2_current_y_crit_ += (1.0 / _main_rate_) * _aligning2_grasping_criterion_increase_rate_y_;
+      aligning2_current_x_crit_ += (1.0 / _main_rate_) * _aligning2_criterion_increase_rate_x_;
+      aligning2_current_y_crit_ += (1.0 / _main_rate_) * _aligning2_criterion_increase_rate_y_;
 
       ROS_INFO_THROTTLE(1.0, "[PreciseLanding]: alignment x crit: %.1f cm, y crit: %.1f cm", aligning2_current_x_crit_ * 100.0,
                         aligning2_current_y_crit_ * 100.0);
@@ -1209,9 +1205,9 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
         if (alignemnt_held_for >= _aligning2_in_alignment_duration_) {
 
-          ROS_INFO("[PreciseLanding]: alignment finished, GRASPING");
+          ROS_INFO("[PreciseLanding]: alignment finished, LANDING");
 
-          changeState(GRASP_STATE);
+          changeState(LANDING_STATE);
 
         } else {
 
@@ -1224,18 +1220,11 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
       //}
 
-      /* GRASP_STATE //{ */
+      /* LANDING_STATE //{ */
 
-    case GRASP_STATE: {
+    case LANDING_STATE: {
 
-      /* if (shouldTimeout(_grasping_timeout_)) { */
-
-      /*   ROS_WARN("[PreciseLanding]: landing took too long, REPEATING."); */
-
-      /*   changeState(REPEAT_STATE); */
-      /* } */
-
-      auto trajectory = createTrajectory(GRASPING_TRAJECTORY);
+      auto trajectory = createTrajectory(LANDING_TRAJECTORY);
 
       if (trajectory) {
         ph_trajectory_reference_.publish(trajectory.value());
@@ -1250,6 +1239,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
         ROS_INFO("[PreciseLanding]: landing finished");
 
+        disarm();
         changeState(IDLE_STATE);
 
         return;

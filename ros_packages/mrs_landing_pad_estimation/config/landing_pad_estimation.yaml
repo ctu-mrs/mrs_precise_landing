@@ -1,6 +1,8 @@
 prediction_rate: 100.0 # [Hz]
 
-tag_id: 1 # [-]
+# order by their embeddedness
+# the first one is the smallest, the most embedded
+tag_ids: [0, 10] # [-]
 
 estimation_frame: "world_origin"
 
