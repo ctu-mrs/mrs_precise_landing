@@ -22,6 +22,7 @@
 #include <mrs_msgs/TrackerCommand.h>
 #include <mrs_msgs/UavState.h>
 #include <mrs_msgs/String.h>
+#include <std_msgs/Float64.h>
 
 //}
 
@@ -118,6 +119,12 @@ private:
   mrs_lib::SubscribeHandler<mrs_msgs::TrackerCommand>                 sh_tracker_cmd_;
   mrs_lib::SubscribeHandler<geometry_msgs::PoseWithCovarianceStamped> sh_landing_tag_;
   mrs_lib::SubscribeHandler<mrs_msgs::UavState>                       sh_uav_state_;
+  mrs_lib::SubscribeHandler<std_msgs::Float64>                        sh_mass_nominal_;
+  mrs_lib::SubscribeHandler<std_msgs::Float64>                        sh_mass_estimate_;
+
+  void callbackTimeoutTag(const std::string &topic_name, const ros::Time &last_msg);
+
+  void callbackLandingTag(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr msg);
 
   ros::ServiceServer service_server_land_;
   ros::ServiceServer service_servcer_stop_;
@@ -127,6 +134,10 @@ private:
 
   // params loaded from config file
   double _trajectory_dt_;
+
+  std::atomic<bool> see_landing_pad_ = false;
+
+  ros::Time timeouter_;
 
   // aligning_grasping params
   double _aligning_speed_;
@@ -158,6 +169,7 @@ private:
   // grasping params
   ros::Time landing_since_;
 
+  double _grasping_timeout_;
   double _grasping_speed_;
   double _grasping_height_;
   int    _grasping_repeat_threshold_;
@@ -169,31 +181,16 @@ private:
   ros::Time grasping_thrust_first_time_;
 
   // repeating params
-  double      _repeating_speed_;
-  double      _repeating_height_;
-  std::string _repeating_controller_;
-  std::string _repeating_odometry_lateral_;
-  std::string _repeating_odometry_height_;
-  std::string _repeating_constraints_;
-  std::string _repeating_gains_;
+  double _repeating_speed_;
+  double _repeating_height_;
 
   // ascending params
-  double      _ascending_speed_;
-  std::string _ascending_controller_;
-  std::string _ascending_odometry_lateral_;
-  std::string _ascending_odometry_height_;
-  std::string _ascending_constraints_;
-  std::string _ascending_gains_;
-  double      ascending_height_;
-  std::mutex  mutex_ascending_height_;
+  double     _ascending_speed_;
+  double     ascending_height_;
+  std::mutex mutex_ascending_height_;
 
   // aborting params
-  double      aborting_height_;
-  std::string _aborting_controller_;
-  std::string _aborting_odometry_lateral_;
-  std::string _aborting_odometry_height_;
-  std::string _aborting_constraints_;
-  std::string _aborting_gains_;
+  double aborting_height_;
 
   int    _loosing_alignment_threshold_;
   double _object_visibility_timeout_;
@@ -207,6 +204,8 @@ private:
   bool alignedWithTarget(const double position_thr, const double heading_thr, Alignment_t mode);
   bool lastAlignmentCheck(void);
 
+  bool shouldTimeout(const double &timeout);
+
   // state machine
   int current_state_, previous_state_;
   int lost_alignment_counter, repeat_grasping_counter;
@@ -216,9 +215,6 @@ private:
 
 public:
   double _main_rate_;
-  double _diagnostics_rate_;
-
-  double distToObject();
 
   void changeState(int newState);
 
@@ -240,15 +236,14 @@ void PreciseLanding::onInit() {
   param_loader.loadParam("uav_name", _uav_name_);
 
   param_loader.loadParam("rate", _main_rate_);
-  param_loader.loadParam("diagnostics_rate", _diagnostics_rate_);
 
   param_loader.loadParam("trajectory_dt", _trajectory_dt_);
 
   // aligning_grasping params
-  param_loader.loadParam("stages/aligning_grasping/speed", _aligning_speed_);
-  param_loader.loadParam("stages/aligning_grasping/height", _aligning_height_);
-  param_loader.loadParam("stages/aligning_grasping/radius", _aligning_radius_);
-  param_loader.loadParam("stages/aligning_grasping/timeout", _aligning_timeout_);
+  param_loader.loadParam("stages/aligning/speed", _aligning_speed_);
+  param_loader.loadParam("stages/aligning/height", _aligning_height_);
+  param_loader.loadParam("stages/aligning/radius", _aligning_radius_);
+  param_loader.loadParam("stages/aligning/timeout", _aligning_timeout_);
 
   // descending params
   param_loader.loadParam("stages/descending/speed", _descending_speed_);
@@ -256,15 +251,15 @@ void PreciseLanding::onInit() {
   param_loader.loadParam("stages/descending/height", _descending_height_);
 
   // aligning2_grasping params
-  param_loader.loadParam("stages/aligning2_grasping/timeout", _aligning2_grasping_timeout_);
+  param_loader.loadParam("stages/aligning2/timeout", _aligning2_grasping_timeout_);
 
-  param_loader.loadParam("stages/aligning2_grasping/criterion/initial_x", _aligning2_grasping_criterion_initial_x_);
-  param_loader.loadParam("stages/aligning2_grasping/criterion/initial_y", _aligning2_grasping_criterion_initial_y_);
-  param_loader.loadParam("stages/aligning2_grasping/criterion/x_increase_rate", _aligning2_grasping_criterion_increase_rate_x_);
-  param_loader.loadParam("stages/aligning2_grasping/criterion/y_increase_rate", _aligning2_grasping_criterion_increase_rate_y_);
+  param_loader.loadParam("stages/aligning2/criterion/initial_x", _aligning2_grasping_criterion_initial_x_);
+  param_loader.loadParam("stages/aligning2/criterion/initial_y", _aligning2_grasping_criterion_initial_y_);
+  param_loader.loadParam("stages/aligning2/criterion/x_increase_rate", _aligning2_grasping_criterion_increase_rate_x_);
+  param_loader.loadParam("stages/aligning2/criterion/y_increase_rate", _aligning2_grasping_criterion_increase_rate_y_);
 
-  param_loader.loadParam("stages/aligning2_grasping/alignment_criterion", _aligning2_grasping_alignment_criterion_);
-  param_loader.loadParam("stages/aligning2_grasping/in_alignment_duration", _aligning2_in_alignment_duration_);
+  param_loader.loadParam("stages/aligning2/alignment_criterion", _aligning2_grasping_alignment_criterion_);
+  param_loader.loadParam("stages/aligning2/in_alignment_duration", _aligning2_in_alignment_duration_);
 
   if (!(_aligning2_grasping_alignment_criterion_ == ALIGNMENT_CRITERION_CONTROL_ERROR ||
         _aligning2_grasping_alignment_criterion_ == ALIGNMENT_CRITERION_BRICK_DETECTION)) {
@@ -291,40 +286,25 @@ void PreciseLanding::onInit() {
   }
 
   // grasping params
-  param_loader.loadParam("stages/grasping/timeout", landing_since_);
-  param_loader.loadParam("stages/grasping/speed", _grasping_speed_);
-  param_loader.loadParam("stages/grasping/height", _grasping_height_);
-  param_loader.loadParam("stages/grasping/repeat_threshold", _grasping_repeat_threshold_);
+  param_loader.loadParam("stages/landing/timeout", _grasping_timeout_);
+  param_loader.loadParam("stages/landing/speed", _grasping_speed_);
+  param_loader.loadParam("stages/landing/height", _grasping_height_);
+  param_loader.loadParam("stages/landing/repeat_threshold", _grasping_repeat_threshold_);
 
-  param_loader.loadParam("stages/grasping/thrust_limiter/enabled", _grasping_thrust_limiter_enabled_);
-  param_loader.loadParam("stages/grasping/thrust_limiter/thrust_ratio", _grasping_thrust_limiter_ratio_);
-  param_loader.loadParam("stages/grasping/thrust_limiter/thrust_timeout", _grasping_thrust_timeout_);
+  param_loader.loadParam("stages/landing/thrust_limiter/enabled", _grasping_thrust_limiter_enabled_);
+  param_loader.loadParam("stages/landing/thrust_limiter/thrust_ratio", _grasping_thrust_limiter_ratio_);
+  param_loader.loadParam("stages/landing/thrust_limiter/thrust_timeout", _grasping_thrust_timeout_);
 
   // repeating params
   param_loader.loadParam("stages/repeating/speed", _repeating_speed_);
   param_loader.loadParam("stages/repeating/height", _repeating_height_);
-  param_loader.loadParam("stages/repeating/controller", _repeating_controller_);
-  param_loader.loadParam("stages/repeating/odometry/lateral", _repeating_odometry_lateral_);
-  param_loader.loadParam("stages/repeating/odometry/height", _repeating_odometry_height_);
-  param_loader.loadParam("stages/repeating/constraints", _repeating_constraints_);
-  param_loader.loadParam("stages/repeating/gains", _repeating_gains_);
 
   // ascending params
   param_loader.loadParam("stages/ascending/speed", _ascending_speed_);
   param_loader.loadParam("stages/ascending/height", ascending_height_);
-  param_loader.loadParam("stages/ascending/controller", _ascending_controller_);
-  param_loader.loadParam("stages/ascending/odometry/lateral", _ascending_odometry_lateral_);
-  param_loader.loadParam("stages/ascending/odometry/height", _ascending_odometry_height_);
-  param_loader.loadParam("stages/ascending/constraints", _ascending_constraints_);
-  param_loader.loadParam("stages/ascending/gains", _ascending_gains_);
 
   // aborting params
   param_loader.loadParam("stages/aborting/height", aborting_height_);
-  param_loader.loadParam("stages/aborting/controller", _aborting_controller_);
-  param_loader.loadParam("stages/aborting/odometry/lateral", _aborting_odometry_lateral_);
-  param_loader.loadParam("stages/aborting/odometry/height", _aborting_odometry_height_);
-  param_loader.loadParam("stages/aborting/constraints", _aborting_constraints_);
-  param_loader.loadParam("stages/aborting/gains", _aborting_gains_);
 
   param_loader.loadParam("loosing_alignment_threshold", _loosing_alignment_threshold_);
   param_loader.loadParam("object_visibility_timeout", _object_visibility_timeout_);
@@ -348,23 +328,40 @@ void PreciseLanding::onInit() {
 
   // | --------------------- sercice servers -------------------- |
 
-  service_server_land_  = nh_.advertiseService("start_in", &PreciseLanding::callbackLand, this);
+  service_server_land_  = nh_.advertiseService("land_in", &PreciseLanding::callbackLand, this);
   service_servcer_stop_ = nh_.advertiseService("stop_in", &PreciseLanding::callbackStop, this);
 
   // | ----------------------- subscribers ---------------------- |
 
-  mrs_lib::SubscribeHandlerOptions shopts;
-  shopts.nh                 = nh_;
-  shopts.node_name          = "PreciseLanding";
-  shopts.no_message_timeout = mrs_lib::no_timeout;
-  shopts.threadsafe         = true;
-  shopts.autostart          = true;
-  shopts.queue_size         = 10;
-  shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
+  {
+    mrs_lib::SubscribeHandlerOptions shopts;
+    shopts.nh                 = nh_;
+    shopts.node_name          = "PreciseLanding";
+    shopts.no_message_timeout = ros::Duration(1.0);
+    shopts.threadsafe         = true;
+    shopts.autostart          = true;
+    shopts.queue_size         = 10;
+    shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
 
-  sh_landing_tag_ = mrs_lib::SubscribeHandler<geometry_msgs::PoseWithCovarianceStamped>(shopts, "tag_in");
-  sh_tracker_cmd_ = mrs_lib::SubscribeHandler<mrs_msgs::TrackerCommand>(shopts, "tracker_cmd_in");
-  sh_uav_state_   = mrs_lib::SubscribeHandler<mrs_msgs::UavState>(shopts, "uav_state_in");
+    sh_landing_tag_ = mrs_lib::SubscribeHandler<geometry_msgs::PoseWithCovarianceStamped>(shopts, "landing_pad_in", &PreciseLanding::callbackLandingTag, this,
+                                                                                          &PreciseLanding::callbackTimeoutTag, this);
+  }
+
+  {
+    mrs_lib::SubscribeHandlerOptions shopts;
+    shopts.nh                 = nh_;
+    shopts.node_name          = "PreciseLanding";
+    shopts.no_message_timeout = mrs_lib::no_timeout;
+    shopts.threadsafe         = true;
+    shopts.autostart          = true;
+    shopts.queue_size         = 10;
+    shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
+
+    sh_tracker_cmd_   = mrs_lib::SubscribeHandler<mrs_msgs::TrackerCommand>(shopts, "tracker_cmd_in");
+    sh_uav_state_     = mrs_lib::SubscribeHandler<mrs_msgs::UavState>(shopts, "uav_state_in");
+    sh_mass_nominal_  = mrs_lib::SubscribeHandler<std_msgs::Float64>(shopts, "mass_nominal_in");
+    sh_mass_estimate_ = mrs_lib::SubscribeHandler<std_msgs::Float64>(shopts, "mass_estimate_in");
+  }
 
   // state machine
   current_state_  = IDLE_STATE;
@@ -381,6 +378,30 @@ void PreciseLanding::onInit() {
   is_initialized_ = true;
 
   ROS_INFO("[PreciseLanding]: initialized");
+}
+
+//}
+
+// | ------------------------ callbacks ----------------------- |
+
+/* callbackLandingTag() //{ */
+
+void PreciseLanding::callbackLandingTag(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr msg) {
+
+  ROS_INFO_ONCE("[PreciseLanding]: getting landing pad pose");
+
+  see_landing_pad_ = true;
+}
+
+//}
+
+/* callbackTimeoutTag() //{ */
+
+void PreciseLanding::callbackTimeoutTag([[maybe_unused]] const std::string &topic_name, [[maybe_unused]] const ros::Time &last_msg) {
+
+  ROS_WARN_THROTTLE(1.0, "[PreciseLanding]: the landing pad timeout");
+
+  see_landing_pad_ = false;
 }
 
 //}
@@ -430,6 +451,8 @@ void PreciseLanding::changeState(int newState) {
 
   previous_state_ = current_state_;
   current_state_  = newState;
+
+  timeouter_ = ros::Time::now();
 
   // if changing to idle, stop the drone
   switch (newState) {
@@ -491,11 +514,9 @@ void PreciseLanding::changeState(int newState) {
 
     case REPEAT_STATE:
 
-      setController(_repeating_controller_);
-
       if (repeat_grasping_counter++ >= _grasping_repeat_threshold_) {
 
-        ROS_INFO("[PreciseLanding]: Exceeded the number of grasping attemptes, going up");
+        ROS_INFO("[PreciseLanding]: Exceeded the number of landing attemptes, going up");
 
         changeState(ABORT_STATE);
       }
@@ -601,20 +622,20 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
 
       point.position.x = trajectory.points.back().position.x + cos(target_heading) * step_size;
       point.position.y = trajectory.points.back().position.y + sin(target_heading) * step_size;
-      point.position.z = init_z;
-      point.heading    = init_hdg;
+      point.position.z = desired_z;
+      point.heading    = desired_heading;
 
       trajectory.points.push_back(point);
     }
 
-    // the last point = the brick
+    // the last point = the landing pad
     {
       mrs_msgs::Reference point;
 
       point.position.x = landing_pad_x;
       point.position.y = landing_pad_y;
-      point.position.z = init_z;
-      point.heading    = init_hdg;
+      point.position.z = desired_z;
+      point.heading    = desired_heading;
 
       trajectory.points.push_back(point);
     }
@@ -733,11 +754,9 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
 
   } else if (trajectoryType == GRASPING_TRAJECTORY) {
 
-    double desired_heading;
+    double desired_heading = landing_pad_hdg;  // TODO
 
-    desired_heading = landing_pad_hdg;  // TODO
-
-    double target_distance = fabs(_grasping_height_);
+    double target_distance = init_z - landing_pad_z - _grasping_height_;
     double direction       = -1;
     double step_size       = _grasping_speed_ * _trajectory_dt_;
     int    n_steps         = int(floor(target_distance / step_size));
@@ -748,7 +767,7 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
 
       point.position.x = landing_pad_x;
       point.position.y = landing_pad_y;
-      point.position.z = init_hdg;
+      point.position.z = init_z;
       point.heading    = desired_heading;
 
       trajectory.points.push_back(point);
@@ -937,7 +956,7 @@ bool PreciseLanding::alignedWithTarget(const double position_thr, const double h
 
   tar_x       = landing_pad.pose.pose.position.x;
   tar_y       = landing_pad.pose.pose.position.y;
-  tar_z       = landing_pad.pose.pose.position.z;
+  tar_z       = landing_pad.pose.pose.position.z + _aligning_height_;
   tar_heading = mrs_lib::AttitudeConverter(landing_pad.pose.pose.orientation).getHeading();
 
   cur_x       = uav_state->pose.position.x;
@@ -1013,6 +1032,23 @@ bool PreciseLanding::lastAlignmentCheck(void) {
 
 //}
 
+/* shouldTimeout() //{ */
+
+bool PreciseLanding::shouldTimeout(const double &timeout) {
+
+  if (timeouter_ == ros::Time::UNINITIALIZED) {
+    return false;
+  }
+
+  if ((ros::Time::now() - timeouter_).toSec() > timeout) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+//}
+
 // --------------------------------------------------------------
 // |                           timers                           |
 // --------------------------------------------------------------
@@ -1023,18 +1059,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
   ROS_INFO_ONCE("[PreciseLanding]: got data, working...");
 
-  auto attitude_command = mrs_lib::get_mutexed(mutex_attitude_command_, attitude_command_);
-  auto cmd_odom_stable  = mrs_lib::get_mutexed(mutex_odometry_main_, cmd_odom_stable_);
-
   double cmd_odom_stable_heading = 0;
-
-  try {
-    cmd_odom_stable_heading = mrs_lib::AttitudeConverter(cmd_odom_stable.pose.orientation).getHeading();
-  }
-  catch (...) {
-  }
-
-  auto focused_brick = mrs_lib::get_mutexed(mutex_focused_brick_, focused_brick_);
 
   switch (current_state_) {
 
@@ -1051,41 +1076,34 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
     case ALIGN_STATE: {
 
-      // | ------------------------- timeout ------------------------ |
-      if (timeout(_aligning_timeout_)) {
+      if (shouldTimeout(_aligning_timeout_)) {
 
-        ROS_ERROR("[PreciseLanding]: timed out, ABORTING");
-
-        changeState(ABORT_STATE);
-      }
-
-      // | ----------------- check brick visibility ----------------- |
-      if (!brickVisible(grasping_object_type_)) {
-
-        // we have lost the object from sight
-        ROS_INFO("[PreciseLanding]: Object not visible");
+        ROS_ERROR("[PreciseLanding]: landing timed out, ABORTING");
 
         changeState(ABORT_STATE);
       }
 
-      // | ----------------- publish the trajectory ----------------- |
-      mrs_msgs::TrajectoryReference trajectory = createTrajectory(ALIGN_TRAJECTORY);
+      if (!see_landing_pad_) {
 
-      // publish the trajectory
-      try {
-        publisher_trajectory_.publish(trajectory);
-      }
-      catch (...) {
-        ROS_ERROR("[PreciseLanding]: Exception caught during publishing topic %s.", publisher_trajectory_.getTopic().c_str());
+        ROS_INFO("[PreciseLanding]: landing pad not visible");
+
+        changeState(ABORT_STATE);
       }
 
-      publishDebugTrajectory(trajectory);
+      auto trajectory = createTrajectory(ALIGN_TRAJECTORY);
 
-      // | ------------------- check the alignment ------------------ |
+      if (trajectory) {
+
+        ph_trajectory_reference_.publish(trajectory.value());
+
+      } else {
+
+        changeState(ABORT_STATE);
+      }
+
       if (alignedWithTarget(_aligning_radius_, 0.1, MODE_3D)) {
 
-        // we are aligned
-        ROS_INFO_THROTTLE(1, "[PreciseLanding]: Aligned with the object, DESCENDING");
+        ROS_INFO_THROTTLE(1, "[PreciseLanding]: aligned with the landing pad, DESCENDING");
 
         changeState(DESCEND_STATE);
       }
@@ -1099,44 +1117,32 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
     case DESCEND_STATE: {
 
-      // | ------------------------- timeout ------------------------ |
-      if (timeout(_descending_timeout_)) {
+      if (shouldTimeout(_descending_timeout_)) {
 
         ROS_ERROR("[PreciseLanding]: timed out, re-ALIGNING");
 
         changeState(REPEAT_STATE);
       }
 
-      // | ----------------- check brick visibility ----------------- |
-      if (!brickVisible(grasping_object_type_)) {
+      if (!see_landing_pad_) {
 
-        // we have lost the object from sight
-        ROS_WARN_THROTTLE(1, "[PreciseLanding]: Object not visible");
+        ROS_WARN_THROTTLE(1, "[PreciseLanding]: landing pad not visible");
 
         changeState(ABORT_STATE);
       }
 
-      // | ------------------ create the trajectory ----------------- |
-      mrs_msgs::TrajectoryReference trajectory = createTrajectory(DESCEND_TRAJECTORY);
+      auto trajectory = createTrajectory(DESCEND_TRAJECTORY);
 
       // publish the trajectory
-      try {
-        publisher_trajectory_.publish(trajectory);
+      if (trajectory) {
+        ph_trajectory_reference_.publish(trajectory.value());
+      } else {
+        changeState(ABORT_STATE);
       }
-      catch (...) {
-        ROS_ERROR("[PreciseLanding]: Exception caught during publishing topic %s.", publisher_trajectory_.getTopic().c_str());
-      }
 
-      publishDebugTrajectory(trajectory);
-
-      // | ------------- check if we reached the height ------------- |
-
-      // check whether we are above the object
       if (alignedWithTarget(0.2, 0.1, MODE_3D)) {
 
-        ROS_INFO("[PreciseLanding]: correct height reached, ALIGNING for grasping");
-
-        ROS_INFO("[PreciseLanding]: DESCENDING took %.1f out of %.1f s", (ros::Time::now() - timeouter_).toSec(), _descending_timeout_);
+        ROS_INFO("[PreciseLanding]: correct height reached, ALIGNING for landing");
 
         changeState(ALIGN2_GRASP_STATE);
       }
@@ -1150,35 +1156,27 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
     case ALIGN2_GRASP_STATE: {
 
-      // | ----------------- check the state timeout ---------------- |
-      if (timeout(_aligning2_grasping_timeout_)) {
+      if (shouldTimeout(_aligning2_grasping_timeout_)) {
 
-        ROS_WARN("[PreciseLanding]: Aligning for grasping took too long, ABORTING.");
-
-        changeState(ABORT_STATE);
-      }
-
-      // | ----------------- check brick visibility ----------------- |
-      if (!brickVisible(grasping_object_type_)) {
-
-        // we have lost the object from sight
-        ROS_WARN_THROTTLE(1, "[PreciseLanding]: Object not visible");
+        ROS_WARN("[PreciseLanding]: Aligning for landing took too long, ABORTING.");
 
         changeState(ABORT_STATE);
       }
 
-      // | ------------- publish the desired trajectory ------------- |
-      mrs_msgs::TrajectoryReference trajectory = createTrajectory(DESCEND_TRAJECTORY);
+      if (!see_landing_pad_) {
 
-      // publish the trajectory
-      try {
-        publisher_trajectory_.publish(trajectory);
-      }
-      catch (...) {
-        ROS_ERROR("[PreciseLanding]: Exception caught during publishing topic %s.", publisher_trajectory_.getTopic().c_str());
+        ROS_WARN_THROTTLE(1, "[PreciseLanding]: landing pad not visible");
+
+        changeState(ABORT_STATE);
       }
 
-      publishDebugTrajectory(trajectory);
+      auto trajectory = createTrajectory(DESCEND_TRAJECTORY);
+
+      if (trajectory) {
+        ph_trajectory_reference_.publish(trajectory.value());
+      } else {
+        changeState(ABORT_STATE);
+      }
 
       aligning2_current_x_crit_ += (1.0 / _main_rate_) * _aligning2_grasping_criterion_increase_rate_x_;
       aligning2_current_y_crit_ += (1.0 / _main_rate_) * _aligning2_grasping_criterion_increase_rate_y_;
@@ -1186,7 +1184,6 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
       ROS_INFO_THROTTLE(1.0, "[PreciseLanding]: alignment x crit: %.1f cm, y crit: %.1f cm", aligning2_current_x_crit_ * 100.0,
                         aligning2_current_y_crit_ * 100.0);
 
-      // | ------------------ update the alignment ------------------ |
       if (lastAlignmentCheck()) {
 
         if (!aligning2_in_radius_) {
@@ -1214,8 +1211,6 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
           ROS_INFO("[PreciseLanding]: alignment finished, GRASPING");
 
-          ROS_INFO("[PreciseLanding]: ALIGNMENT took %.1f out of %.1f s", (ros::Time::now() - timeouter_).toSec(), _aligning2_grasping_timeout_);
-
           changeState(GRASP_STATE);
 
         } else {
@@ -1233,57 +1228,31 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
     case GRASP_STATE: {
 
-      // | ----------------- check the state timeout ---------------- |
-      if (timeout(landing_since_)) {
+      /* if (shouldTimeout(_grasping_timeout_)) { */
 
-        ROS_WARN("[PreciseLanding]: Grasping took too long, REPEATING.");
+      /*   ROS_WARN("[PreciseLanding]: landing took too long, REPEATING."); */
 
-        changeState(REPEAT_STATE);
+      /*   changeState(REPEAT_STATE); */
+      /* } */
+
+      auto trajectory = createTrajectory(GRASPING_TRAJECTORY);
+
+      if (trajectory) {
+        ph_trajectory_reference_.publish(trajectory.value());
+      } else {
+        changeState(ABORT_STATE);
       }
 
-      // | ------------------ create the trajectory ----------------- |
-      mrs_msgs::TrajectoryReference trajectory = createTrajectory(GRASPING_TRAJECTORY);
+      auto nominal_msas   = sh_mass_nominal_.getMsg();
+      auto estimated_mass = sh_mass_estimate_.getMsg();
 
-      try {
-        publisher_trajectory_.publish(trajectory);
-      }
-      catch (...) {
-        ROS_ERROR("[PreciseLanding]: Exception caught during publishing topic %s.", publisher_trajectory_.getTopic().c_str());
-      }
+      if (estimated_mass->data < (0.5 * nominal_msas->data)) {
 
-      publishDebugTrajectory(trajectory);
+        ROS_INFO("[PreciseLanding]: landing finished");
 
-      // | --------------------- thrust limiter --------------------- |
-      if (_grasping_thrust_limiter_enabled_) {
+        changeState(IDLE_STATE);
 
-        double thrust_mass_estimate = mrs_lib::quadratic_thrust_model::thrustToForce(_motor_params_, attitude_command.thrust) / _g_;
-        ROS_INFO_THROTTLE(1.0, "[PreciseLanding]: landing_uav_mass_: %f thrust_mass_estimate: %f", landing_uav_mass_, thrust_mass_estimate);
-
-        if (((thrust_mass_estimate < _grasping_thrust_limiter_ratio_ * landing_uav_mass_) || attitude_command.thrust < 0.01)) {
-
-          if (!grasping_thrust_under_threshold_) {
-
-            grasping_thrust_first_time_      = ros::Time::now();
-            grasping_thrust_under_threshold_ = true;
-          }
-
-          ROS_INFO_THROTTLE(0.1, "[PreciseLanding]: thrust is under cutoff factor for %.2f s", (ros::Time::now() - grasping_thrust_first_time_).toSec());
-
-        } else {
-
-          grasping_thrust_under_threshold_ = false;
-        }
-
-        if (grasping_thrust_under_threshold_ && ((ros::Time::now() - grasping_thrust_first_time_).toSec() > _grasping_thrust_timeout_)) {
-
-          ROS_INFO("[PreciseLanding]: we touched the object, repeating");
-
-          ROS_INFO("[PreciseLanding]: GRASPING took %.1f out of %.1f s", (ros::Time::now() - timeouter_).toSec(), _grasping_timeout_);
-
-          changeState(REPEAT_STATE);
-
-          return;
-        }
+        return;
       }
 
       break;
@@ -1295,17 +1264,13 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
     case REPEAT_STATE: {
 
-      // | ------------------ create the trajectory ----------------- |
-      mrs_msgs::TrajectoryReference trajectory = createTrajectory(REPEAT_TRAJECTORY);
+      auto trajectory = createTrajectory(REPEAT_TRAJECTORY);
 
-      try {
-        publisher_trajectory_.publish(trajectory);
+      if (trajectory) {
+        ph_trajectory_reference_.publish(trajectory.value());
+      } else {
+        changeState(ABORT_STATE);
       }
-      catch (...) {
-        ROS_ERROR("[PreciseLanding]: Exception caught during publishing topic %s.", publisher_trajectory_.getTopic().c_str());
-      }
-
-      publishDebugTrajectory(trajectory);
 
       // | -------------------- check the height -------------------- |
       if (alignedWithTarget(0.3, 0.1, MODE_3D)) {
@@ -1322,75 +1287,14 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
     case ASCEND_STATE: {
 
-      // | ------------------ create the trajectory ----------------- |
-      mrs_msgs::TrajectoryReference trajectory = createTrajectory(ASCEND_TRAJECTORY);
+      auto trajectory = createTrajectory(ASCEND_TRAJECTORY);
 
-      try {
-        publisher_trajectory_.publish(trajectory);
-      }
-      catch (...) {
-        ROS_ERROR("[PreciseLanding]: Exception caught during publishing topic %s.", publisher_trajectory_.getTopic().c_str());
+      if (trajectory) {
+        ph_trajectory_reference_.publish(trajectory.value());
+      } else {
+        changeState(ABORT_STATE);
       }
 
-      publishDebugTrajectory(trajectory);
-
-      // | ------------ check if we still have the object ----------- |
-      if (!objectGripped()) {
-
-        ROS_WARN("[PreciseLanding]: We lost something, repeating.");
-
-        changeState(REPEAT_STATE);
-      }
-
-      // | ------------------- ckeck the climbing ------------------- |
-      if (alignedWithTarget(0.5, 0.1, MODE_3D)) {
-
-        std::string brick_color;
-
-        switch (focused_brick.type) {
-          case BRICK_RED: {
-            brick_color = "RED";
-            break;
-          }
-          case BRICK_GREEN: {
-            brick_color = "GREEN";
-            break;
-          }
-          case BRICK_BLUE: {
-            brick_color = "BLUE";
-            break;
-          }
-        }
-
-        ROS_INFO("[PreciseLanding]: we succeded with grasping of the %s brick.", brick_color.c_str());
-
-        carrying_brick_type_ = Object_t(focused_brick.type);
-
-        changeState(IDLE_STATE);
-      }
-
-      break;
-    }
-
-      //}
-
-      /* ASCEND_AFTER_PLACE_STATE //{ */
-
-    case ASCEND_AFTER_PLACE_STATE: {
-
-      // | -------------------- create trajectory ------------------- |
-      mrs_msgs::TrajectoryReference trajectory = createTrajectory(ASCEND_AFTER_PLACE_TRAJECTORY);
-
-      try {
-        publisher_trajectory_.publish(trajectory);
-      }
-      catch (...) {
-        ROS_ERROR("[PreciseLanding]: Exception caught during publishing topic %s.", publisher_trajectory_.getTopic().c_str());
-      }
-
-      publishDebugTrajectory(trajectory);
-
-      // | -------- check whether we are in the target place -------- |
       if (alignedWithTarget(0.5, 0.1, MODE_3D)) {
 
         changeState(IDLE_STATE);
@@ -1405,235 +1309,18 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
     case ABORT_STATE: {
 
-      // | ------------------ create the trajectory ----------------- |
-      mrs_msgs::TrajectoryReference trajectory = createTrajectory(ABORT_TRAJECTORY);
+      auto trajectory = createTrajectory(ABORT_TRAJECTORY);
 
-      try {
-        publisher_trajectory_.publish(trajectory);
-      }
-      catch (...) {
-        ROS_ERROR("[PreciseLanding]: Exception caught during publishing topic %s.", publisher_trajectory_.getTopic().c_str());
+      if (trajectory) {
+        ph_trajectory_reference_.publish(trajectory.value());
+      } else {
+        changeState(ABORT_STATE);
       }
 
       // | --------------- check if we reached to top --------------- |
       if (alignedWithTarget(0.5, 0.1, MODE_3D)) {
 
         changeState(IDLE_STATE);
-      }
-
-      break;
-    }
-
-      //}
-
-      /* PREEMPTED_STATE //{ */
-
-    case PREEMPTED_STATE: {
-
-      // | ------------------ create the trajectory ----------------- |
-      mrs_msgs::TrajectoryReference trajectory = createTrajectory(ABORT_TRAJECTORY);
-
-      try {
-        publisher_trajectory_.publish(trajectory);
-      }
-      catch (...) {
-        ROS_ERROR("[PreciseLanding]: Exception caught during publishing topic %s.", publisher_trajectory_.getTopic().c_str());
-      }
-
-      // check whether we are still climbing up
-      if (alignedWithTarget(0.3, 0.1, MODE_3D)) {
-
-        changeState(IDLE_STATE);
-      }
-
-      break;
-    }
-
-      //}
-
-      /* ALIGN_PLACE_STATE //{ */
-
-    case ALIGN_PLACE_STATE: {
-
-      // | ------------------------- timeout ------------------------ |
-      if (timeout(_aligning_placing_timeout_)) {
-
-        ROS_ERROR("[PreciseLanding]: timed out, ABORTING");
-
-        changeState(ABORT_STATE);
-      }
-
-      // | ------------ check if we still have the object ----------- |
-      if (!objectGripped()) {
-
-        ROS_WARN("[PreciseLanding]: We lost something, mission success, I guess.");
-
-        changeState(ASCEND_AFTER_PLACE_STATE);
-      }
-
-      // | ----------------- check wall visibility ----------------- |
-      if (!brickVisible(grasping_object_type_)) {
-
-        // we have lost the object from sight
-        ROS_WARN_THROTTLE(1, "[PreciseLanding]: Object not visible");
-
-        changeState(ABORT_STATE);
-      }
-
-      // | ------------------ create the trajectory ----------------- |
-      mrs_msgs::TrajectoryReference trajectory = createTrajectory(ALIGN_TO_PLACE_TRAJECTORY);
-
-      try {
-        publisher_trajectory_.publish(trajectory);
-      }
-      catch (...) {
-        ROS_ERROR("[PreciseLanding]: Exception caught during publishing topic %s.", publisher_trajectory_.getTopic().c_str());
-      }
-
-      // check whether we are above the dropping zone
-      if (alignedWithTarget(_aligning_placing_radius_, 0.05, MODE_2D)) {
-
-        changeState(WALL_PLACING_STATE);
-      }
-
-      break;
-    }
-
-      //}
-
-      /* WALL_PLACING_STATE //{ */
-
-    case WALL_PLACING_STATE: {
-
-      // | ------------------------- timeout ------------------------ |
-      if (timeout(_placing_timeout_)) {
-
-        ROS_ERROR("[PreciseLanding]: timed out, ABORTING");
-
-        changeState(ABORT_STATE);
-      }
-
-      // | ----------------- check wall visibility ----------------- |
-      if (!brickVisible(grasping_object_type_)) {
-
-        // we have lost the object from sight
-        ROS_WARN_THROTTLE(1, "[PreciseLanding]: Object not visible");
-
-        changeState(ABORT_STATE);
-      }
-
-      // | ------------ check if we still have the object ----------- |
-      if (!objectGripped()) {
-
-        ROS_WARN("[PreciseLanding]: We lost something, mission success, I guess.");
-
-        changeState(ASCEND_AFTER_PLACE_STATE);
-      }
-
-      // | --------------------- touch detection -------------------- |
-      double thrust_mass_estimate = mrs_lib::quadratic_thrust_model::thrustToForce(_motor_params_, attitude_command.thrust) / _g_;
-      ROS_INFO_THROTTLE(1.0, "[PreciseLanding]: landing_uav_mass: %f thrust_mass_estimate: %f", landing_uav_mass_, thrust_mass_estimate);
-
-      // condition for automatic motor turn off
-      if (((thrust_mass_estimate < _placing_thrust_limiter_ratio_ * landing_uav_mass_) || attitude_command.thrust < 0.01)) {
-
-        if (!placing_thrust_under_threshold_) {
-
-          placing_thrust_first_time_      = ros::Time::now();
-          placing_thrust_under_threshold_ = true;
-        }
-
-        ROS_INFO_THROTTLE(0.1, "[PreciseLanding]: thrust is under cutoff factor for %.2f s", (ros::Time::now() - placing_thrust_first_time_).toSec());
-
-      } else {
-
-        placing_thrust_under_threshold_ = false;
-      }
-
-      if (placing_thrust_under_threshold_ && ((ros::Time::now() - placing_thrust_first_time_).toSec() > _placing_thrust_timeout_)) {
-
-        ROS_INFO("[PreciseLanding]: we touched the wall, ungripping");
-
-        changeState(WAITING_AFTER_PLACING);
-      }
-
-      // | --------------------- alignment check -------------------- |
-      if (alignedWithTarget(0.1, 0.1, MODE_3D)) {
-
-        ROS_INFO("[PreciseLanding]: reached the target altitude, ungripping");
-
-        changeState(WAITING_AFTER_PLACING);
-      }
-
-      // | ------------------ create the trajectory ----------------- |
-      mrs_msgs::TrajectoryReference trajectory = createTrajectory(PLACING_TRAJECTORY);
-
-      try {
-        publisher_trajectory_.publish(trajectory);
-      }
-      catch (...) {
-        ROS_ERROR("[PreciseLanding]: Exception caught during publishing topic %s.", publisher_trajectory_.getTopic().c_str());
-      }
-
-      break;
-    }
-
-      //}
-
-      /* GROUND_PLACING_STATE //{ */
-
-    case GROUND_PLACING_STATE: {
-
-      // | ------------------ create the trajectory ----------------- |
-      mrs_msgs::TrajectoryReference trajectory = createTrajectory(GROUND_PLACING_TRAJECTORY);
-
-      try {
-        publisher_trajectory_.publish(trajectory);
-      }
-      catch (...) {
-        ROS_ERROR("[PreciseLanding]: Exception caught during publishing topic %s.", publisher_trajectory_.getTopic().c_str());
-      }
-
-      // | ------------------ the thrust condition ------------------ |
-      double thrust_mass_estimate = mrs_lib::quadratic_thrust_model::thrustToForce(_motor_params_, attitude_command.thrust) / _g_;
-      ROS_INFO_THROTTLE(1.0, "[PreciseLanding]: landing_uav_mass: %f thrust_mass_estimate: %f", landing_uav_mass_, thrust_mass_estimate);
-
-      // condition for automatic motor turn off
-      if (((thrust_mass_estimate < _ground_placing_thrust_limiter_ratio_ * landing_uav_mass_) || attitude_command.thrust < 0.01)) {
-
-        if (!ground_placing_thrust_under_threshold_) {
-
-          ground_placing_thrust_first_time_      = ros::Time::now();
-          ground_placing_thrust_under_threshold_ = true;
-        }
-
-        ROS_INFO_THROTTLE(0.1, "[PreciseLanding]: thrust is under cutoff factor for %.2f s", (ros::Time::now() - ground_placing_thrust_first_time_).toSec());
-
-      } else {
-
-        ground_placing_thrust_under_threshold_ = false;
-      }
-
-      if (ground_placing_thrust_under_threshold_ && ((ros::Time::now() - ground_placing_thrust_first_time_).toSec() > _ground_placing_thrust_timeout_)) {
-
-        ROS_INFO("[PreciseLanding]: we touched the ground, dropping");
-
-        changeState(WAITING_AFTER_PLACING);
-      }
-
-      break;
-    }
-
-      //}
-
-      /* WAITING_AFTER_PLACING //{ */
-
-    case WAITING_AFTER_PLACING: {
-
-      // check whether we have not exceeded timeout
-      if ((ros::Time::now() - placing_time_).toSec() > _after_placing_delay_) {
-
-        changeState(ASCEND_AFTER_PLACE_STATE);
       }
 
       break;

@@ -20,14 +20,20 @@
 
       <rosparam file="$(find mrs_precise_landing)/config/precise_landing.yaml" />
 
+      <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
+
       <!-- Subscribers -->
 
       <remap from="~landing_pad_in" to="landing_pad_estimation/pose_estimate" />
       <remap from="~tracker_cmd_in" to="control_manager/tracker_cmd" />
+      <remap from="~uav_state_in" to="estimation_manager/uav_state" />
+      <remap from="~mass_nominal_in" to="control_manager/mass_nominal" />
+      <remap from="~mass_estimate_in" to="control_manager/mass_estimate" />
 
       <!-- Service callers -->
 
       <remap from="~toggle_output_out" to="control_manager/toggle_output" />
+      <remap from="~switch_controller_out" to="control_manager/switch_controller" />
 
       <!-- Advertised services -->
 
@@ -36,7 +42,7 @@
 
       <!-- Publishers -->
 
-      <remap from="~desired_trajectory_out" to="control_manager/trajectory_reference" />
+      <remap from="~trajectory_reference_out" to="control_manager/trajectory_reference" />
 
     </node>
 

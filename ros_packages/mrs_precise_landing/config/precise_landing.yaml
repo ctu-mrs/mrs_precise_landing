@@ -51,6 +51,9 @@ stages:
     speed: 0.5 # [m/s]
     height: 2.0 # [m]
 
+  aborting:
+    height: 4.0 # [m]
+
 # the number of times of loosing alignment during landing which is tolerated
 loosing_alignment_threshold: 5.0
 

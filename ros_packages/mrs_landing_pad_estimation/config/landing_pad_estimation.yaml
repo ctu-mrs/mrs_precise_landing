@@ -1,6 +1,6 @@
 prediction_rate: 100.0 # [Hz]
 
-tag_id: 4 # [-]
+tag_id: 1 # [-]
 
 estimation_frame: "world_origin"
 
@@ -18,10 +18,10 @@ lkf:
   B: []
 
   # measurement noise
-  R: [0.1, 0, 0, 0,
-      0, 0.1, 0, 0,
-      0, 0, 0.1, 0,
-      0, 0, 0, 0.1]
+  R: [1.0, 0, 0, 0,
+      0, 1.0, 0, 0,
+      0, 0, 1.0, 0,
+      0, 0, 0, 1.0]
 
   # process covariance
   Q: [1.0, 0, 0, 0,
