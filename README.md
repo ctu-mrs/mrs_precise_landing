@@ -13,7 +13,8 @@ Autonomous precise landing on an AprilTag.
 
 ## Components
 
-* [Landing Pad Estimation](./ros_packages/mrs_landing_pad_estimation)
+* AprilTag detector
+* [Landing Pad Estimator](./ros_packages/mrs_landing_pad_estimation)
 * [Precise Landing Conroller](./ros_packages/mrs_precise_landing)
 * [Gazebo Resources for testing](./ros_packages/mrs_precise_landing_gazebo)
 
