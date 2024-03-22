@@ -4,7 +4,11 @@ Autonomous precise landing on an AprilTag.
 
 ## Installation
 
+For deployment:
 `sudo apt install ros-noetic-mrs-precise-landing`
+
+For simulations:
+`sudo apt install ros-noetic-mrs-precise-landing-gazebo`
 
 ## Dependencies
 
@@ -18,7 +22,7 @@ Autonomous precise landing on an AprilTag.
 * [Precise Landing Conroller](./ros_packages/mrs_precise_landing)
 * [Gazebo Resources for testing](./ros_packages/mrs_precise_landing_gazebo)
 
-## Example
+## Example simulation
 
 ```bash
 roscd mrs_precise_landing_gazebo

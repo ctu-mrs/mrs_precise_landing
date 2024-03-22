@@ -17,6 +17,7 @@
   <depend>mrs_lib</depend>
   <depend>nodelet</depend>
   <depend>mrs_msgs</depend>
+  <depend>mrs_landing_pad_estimation</depend>
 
   <export>
     <nodelet plugin="${prefix}/nodelets.xml" />
