@@ -1,12 +1,15 @@
 prediction_rate: 100.0 # [Hz]
 
 # order by their embeddedness
-# the first one is the smallest, the most embedded
+# the first one is the smallest and the most embedded one
 tag_ids: [0, 10] # [-]
 
 estimation_frame: "world_origin"
 
 correction_timeout: 5.0 # [s]
+
+# max relative distance to the landing tag
+max_relative_distance: 8.0
 
 lkf:
 

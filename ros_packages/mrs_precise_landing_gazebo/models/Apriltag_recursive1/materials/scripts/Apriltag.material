@@ -1,0 +1,17 @@
+material Apriltag_recursive1
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      texture_unit
+      {
+        texture atag_rec1.png
+        filtering none none none
+        scale 1.0 1.0
+      }
+    }
+  }
+}
+
