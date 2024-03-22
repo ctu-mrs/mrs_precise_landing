@@ -12,7 +12,6 @@ max_hamming_dist:  2          # default: 2 (Tunable parameter with 2 being a goo
 publish_tf:        true       # default: false
 transport_hint:    "raw"      # default: raw, see http://wiki.ros.org/image_transport#Known_Transport_Packages for options
 
-
 # standalone_tags:
 #   [
 #     {id: ID, size: SIZE, name: NAME},

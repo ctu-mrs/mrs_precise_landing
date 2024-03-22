@@ -34,18 +34,10 @@ windows:
           custom_config:=./config/custom_config.yaml
           world_config:=./config/world_config.yaml
           network_config:=./config/network_config.yaml
-  - apriltag:
+  - precise_landing:
       layout: tiled
       panes:
-        - waitForControl; roslaunch mrs_landing_pad_estimation apriltag_detector.launch
-  - estimator:
-      layout: tiled
-      panes:
-        - waitForTime; roslaunch mrs_landing_pad_estimation landing_pad_estimation.launch
-  - landing:
-      layout: tiled
-      panes:
-        - waitForTime; roslaunch mrs_precise_landing precise_landing.launch
+        - waitForTime; roslaunch mrs_precise_landing precise_landing.launch apriltag_config:=`rospack find mrs_landing_pad_estimation`/config/apriltag_recursive.yaml camera_node:=bluefox_optflow image_topic:=image_raw
   - land:
       layout: tiled
       panes:

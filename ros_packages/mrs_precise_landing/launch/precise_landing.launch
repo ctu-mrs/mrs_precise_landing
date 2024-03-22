@@ -6,6 +6,10 @@
 
   <arg name="standalone" default="true" />
 
+  <arg name="camera_node" default="" />
+  <arg name="image_topic" default="" />
+  <arg name="apriltag_config" default="" />
+
   <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
   <arg unless="$(arg standalone)" name="nodelet" value="load"/>
   <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
@@ -13,6 +17,14 @@
 
   <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch"/>
   <arg unless="$(arg debug)" name="launch_prefix" value=""/>
+
+  <include file="$(find mrs_landing_pad_estimation)/launch/landing_pad_estimation.launch">
+
+    <arg name="camera_node" default="$(arg camera_node)" />
+    <arg name="image_topic" default="$(arg image_topic)" />
+    <arg name="apriltag_config" default="$(arg apriltag_config)" />
+
+  </include>
 
   <group ns="$(arg UAV_NAME)">
 

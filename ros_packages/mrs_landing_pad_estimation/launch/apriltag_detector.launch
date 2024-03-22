@@ -1,10 +1,10 @@
 <launch>
 
-  <arg name="UAV_NAME" default="$(optenv UAV_NAME uav)" />
+  <arg name="UAV_NAME" default="$(optenv UAV_NAME uav1)" />
 
   <!-- configure camera input -->
-  <arg name="camera_name" default="bluefox_optflow" />
-  <arg name="image_topic" default="image_raw" />
+  <arg name="camera_node" default="" />
+  <arg name="image_topic" default="" />
   <arg name="queue_size" default="1" />
 
   <arg name="custom_config" default="" />
@@ -19,8 +19,8 @@
       <rosparam if="$(eval not arg('custom_config') == '')" file="$(arg custom_config)" />
 
       <!-- Remap topics from those used in code to those on the ROS network -->
-      <remap from="image_rect" to="$(arg camera_name)/$(arg image_topic)" />
-      <remap from="camera_info" to="$(arg camera_name)/camera_info" />
+      <remap from="image_rect" to="$(arg camera_node)/$(arg image_topic)" />
+      <remap from="camera_info" to="$(arg camera_node)/camera_info" />
 
       <remap from="tag_detections" to="~/tag_detections" />
       <remap from="tag_detections_image" to="~/tag_detections_image" />

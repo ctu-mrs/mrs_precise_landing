@@ -5,6 +5,10 @@
   <arg name="debug" default="false" />
   <arg name="standalone" default="true" />
 
+  <arg name="camera_node" default="" />
+  <arg name="image_topic" default="" />
+  <arg name="apriltag_config" default="" />
+
   <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
   <arg unless="$(arg standalone)" name="nodelet" value="load"/>
   <arg     if="$(arg standalone)" name="nodelet_manager" value=""/>
@@ -14,6 +18,14 @@
   <arg unless="$(arg debug)" name="launch_prefix" value=""/>
 
   <env name="ROSCONSOLE_CONFIG_FILE" if="$(eval arg('LOGGER_DEBUG'))" value="$(find mrs_landing_pad_estimation)/config/debug_verbosity.yaml" />
+
+  <include file="$(find mrs_landing_pad_estimation)/launch/apriltag_detector.launch">
+
+    <arg name="camera_node" value="$(arg camera_node)" />
+    <arg name="image_topic" value="$(arg image_topic)" />
+    <arg name="custom_config" value="$(arg apriltag_config)" />
+
+  </include>
 
   <group ns="$(arg UAV_NAME)">
 
