@@ -8,6 +8,7 @@
   <arg name="camera_node" default="" />
   <arg name="image_topic" default="" />
   <arg name="apriltag_config" default="" />
+  <arg name="estimator_config" default="" />
 
   <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
   <arg unless="$(arg standalone)" name="nodelet" value="load"/>
@@ -32,6 +33,7 @@
     <node pkg="nodelet" type="nodelet" name="landing_pad_estimation" args="$(arg nodelet) mrs_landing_pad_estimation/LandingPadEstimation $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
 
       <rosparam file="$(find mrs_landing_pad_estimation)/config/landing_pad_estimation.yaml" />
+      <rosparam if="$(eval not arg('estimator_config') == '')" file="$(arg estimator_config)" />
 
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
 

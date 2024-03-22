@@ -145,11 +145,12 @@
       <real_time>56 382306010</real_time>
       <wall_time>1710939471 61840082</wall_time>
       <iterations>13949</iterations>
+
       <model name='Apriltag_recursive1'>
-        <pose>0 0 0 0 -0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <scale>1 1 1</scale>
         <link name='main'>
-          <pose>0 0 0 0 -0 0</pose>
+          <pose>0 1.2 0 -0 1</pose>
           <velocity>0 0 0 0 -0 0</velocity>
           <acceleration>0 0 0 0 -0 0</acceleration>
           <wrench>0 0 0 0 -0 0</wrench>
@@ -174,8 +175,34 @@
     </state>
 
     <model name='Apriltag_recursive1'>
+      <static>1</static>
       <link name='main'>
-        <pose>1 2 0 0 0 0</pose>
+        <collision name='collision'>
+          <pose>0 0 0 0 0 0</pose>
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>1 1</size>
+            </plane>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <pose>0 0 0 0 0 0</pose>
         <visual name='main_Visual'>
           <geometry>
             <box>
@@ -194,8 +221,6 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
-      <static>1</static>
-      <pose>0 0 0 0 0 0</pose>
     </model>
 
   </world>

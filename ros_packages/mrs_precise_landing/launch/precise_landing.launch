@@ -9,6 +9,8 @@
   <arg name="camera_node" default="" />
   <arg name="image_topic" default="" />
   <arg name="apriltag_config" default="" />
+  <arg name="controller_config" default="" />
+  <arg name="estimator_config" default="" />
 
   <arg     if="$(arg standalone)" name="nodelet" value="standalone"/>
   <arg unless="$(arg standalone)" name="nodelet" value="load"/>
@@ -23,6 +25,7 @@
     <arg name="camera_node" default="$(arg camera_node)" />
     <arg name="image_topic" default="$(arg image_topic)" />
     <arg name="apriltag_config" default="$(arg apriltag_config)" />
+    <arg name="estimator_config" default="$(arg estimator_config)" />
 
   </include>
 
@@ -31,6 +34,7 @@
     <node pkg="nodelet" type="nodelet" name="precise_landing" args="$(arg nodelet) mrs_precise_landing/PreciseLanding $(arg nodelet_manager)" output="screen" launch-prefix="$(arg launch_prefix)">
 
       <rosparam file="$(find mrs_precise_landing)/config/precise_landing.yaml" />
+      <rosparam if="$(eval not arg('controller_config') == '')" file="$(arg controller_config)" />
 
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
 

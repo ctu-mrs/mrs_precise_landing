@@ -1,0 +1,5 @@
+desired_heading:
+
+  relative_to_pad:
+    enabled: true
+    heading: 0.0 # [rad]
