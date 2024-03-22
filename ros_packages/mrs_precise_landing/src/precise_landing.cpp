@@ -648,7 +648,7 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
 
     double target_distance, direction, desired_height, desired_vector, desired_heading;
 
-    desired_height  = _descending_height_;
+    desired_height  = landing_pad_z + _descending_height_;
     desired_vector  = desired_height - init_z;
     target_distance = fabs(desired_vector);
     direction       = (desired_vector <= 0) ? -1 : 1;
@@ -696,7 +696,7 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
 
       point.position.x = landing_pad_x;
       point.position.y = landing_pad_y;
-      point.position.z = _descending_height_;
+      point.position.z = desired_height;
       point.heading    = desired_heading;
 
       trajectory.points.push_back(point);
@@ -712,7 +712,7 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
 
     double desired_height, desired_vector, target_distance, direction;
 
-    desired_height  = ascending_height_;
+    desired_height  = landing_pad_z + ascending_height_;
     desired_vector  = desired_height - init_z;
     target_distance = fabs(desired_vector);
     direction       = (desired_vector <= 0) ? -1 : 1;
@@ -1353,13 +1353,6 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
       auto nominal_msas   = sh_mass_nominal_.getMsg();
       auto estimated_mass = sh_mass_estimate_.getMsg();
-
-      if (estimated_mass->data < (0.8 * nominal_msas->data)) {
-
-        changeState(ABORT_STATE);
-
-        return;
-      }
 
       if (estimated_mass->data < (0.5 * nominal_msas->data)) {
 
