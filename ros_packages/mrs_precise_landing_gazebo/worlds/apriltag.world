@@ -3,9 +3,9 @@
     <plugin name='mrs_gazebo_static_transform_republisher_plugin' filename='libMrsGazeboCommonResources_StaticTransformRepublisher.so'/>
     <spherical_coordinates>
       <surface_model>EARTH_WGS84</surface_model>
-      <latitude_deg>47.3977</latitude_deg>
-      <longitude_deg>8.54559</longitude_deg>
-      <elevation>0</elevation>
+      <latitude_deg>47.397743</latitude_deg>
+      <longitude_deg>8.545594</longitude_deg>
+      <elevation>250</elevation>
       <heading_deg>0</heading_deg>
     </spherical_coordinates>
     <physics name='default_physics' default='0' type='ode'>

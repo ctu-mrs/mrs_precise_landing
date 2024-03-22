@@ -1,18 +1,18 @@
-# rate of publishing the trajectory
-rate: 100.0 # [Hz]
-
-# sampling of the trajectory
-trajectory_dt: 0.20 # [s]
-
 controller: "Se3Controller"
+
+desired_heading:
+
+  relative_to_pad:
+    enabled: true
+    heading: 0.0 # [rad]
 
 stages:
 
   aligning:
-    speed: 0.3    # [m/s]
+    speed: 1.0    # [m/s]
     height: 2.0   # [m]
     radius: 0.2   # [m]
-    timeout: 10.0 # [s]
+    timeout: 20.0 # [s]
 
   descending:
     speed: 0.3    # [m/s]
@@ -27,7 +27,7 @@ stages:
       initial_x: 0.03        # [m], +-
       initial_y: 0.03        # [m], +-
       x_increase_rate: 0.01  # [m/s]
-      y_increase_rate: 0.007 # [m/s]
+      y_increase_rate: 0.01 # [m/s]
 
     in_alignment_duration: 0.5 # [s]
     alignment_criterion: 1     # {0 = control_error, 1 = pad detection}
@@ -48,8 +48,8 @@ stages:
   aborting:
     height: 4.0 # [m]
 
-# the number of times of loosing alignment during landing which is tolerated
-loosing_alignment_threshold: 5.0
+# rate of publishing the trajectory
+rate: 10.0 # [Hz]
 
-# time after we stop waiting for a lost pad
-object_visibility_timeout: 1.0
+# sampling of the trajectory
+trajectory_dt: 0.20 # [s]

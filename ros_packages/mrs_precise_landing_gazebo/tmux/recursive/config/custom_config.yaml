@@ -6,9 +6,10 @@ mrs_uav_managers:
     state_estimators: [
       "gps_garmin",
       "gps_baro",
+      "rtk",
     ]
 
-    initial_state_estimator: "gps_garmin" # will be used as the first state estimator
+    initial_state_estimator: "rtk" # will be used as the first state estimator
     agl_height_estimator: "garmin_agl" # only slightly filtered height for checking min height (not used in control feedback)
 
   uav_manager:
@@ -23,8 +24,3 @@ mrs_uav_managers:
         controller: "MpcController" # more robust
         # controller: "Se3Controller" # more precise
         tracker: "MpcTracker"
-
-    min_height_checking:
-
-      enabled: false
-

@@ -16,6 +16,7 @@
 
 #include <std_srvs/Trigger.h>
 #include <std_srvs/SetBool.h>
+#include <std_msgs/Float64.h>
 
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 
@@ -23,7 +24,7 @@
 #include <mrs_msgs/TrackerCommand.h>
 #include <mrs_msgs/UavState.h>
 #include <mrs_msgs/String.h>
-#include <std_msgs/Float64.h>
+#include <mrs_msgs/PathSrv.h>
 
 //}
 
@@ -85,7 +86,6 @@ const char *state_names[8] = {
 // trajectory types
 [[maybe_unused]] enum {
 
-  ALIGN_TRAJECTORY,
   DESCEND_TRAJECTORY,
   ASCEND_TRAJECTORY,
   LANDING_TRAJECTORY,
@@ -118,20 +118,23 @@ private:
   mrs_lib::PublisherHandler<mrs_msgs::TrajectoryReference> ph_trajectory_reference_;
 
   mrs_lib::SubscribeHandler<mrs_msgs::TrackerCommand>                 sh_tracker_cmd_;
-  mrs_lib::SubscribeHandler<geometry_msgs::PoseWithCovarianceStamped> sh_landing_tag_;
+  mrs_lib::SubscribeHandler<geometry_msgs::PoseWithCovarianceStamped> sh_landing_pad_;
   mrs_lib::SubscribeHandler<mrs_msgs::UavState>                       sh_uav_state_;
   mrs_lib::SubscribeHandler<std_msgs::Float64>                        sh_mass_nominal_;
   mrs_lib::SubscribeHandler<std_msgs::Float64>                        sh_mass_estimate_;
 
-  void callbackTimeoutTag(const std::string &topic_name, const ros::Time &last_msg);
+  void callbackTimeoutPad(const std::string &topic_name, const ros::Time &last_msg);
 
-  void callbackLandingTag(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr msg);
+  void callbackLandingPad(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr msg);
 
   ros::ServiceServer service_server_land_;
   ros::ServiceServer service_servcer_stop_;
 
   mrs_lib::ServiceClientHandler<mrs_msgs::String>  sch_switch_controller_;
   mrs_lib::ServiceClientHandler<std_srvs::SetBool> sch_arming_;
+  mrs_lib::ServiceClientHandler<std_srvs::SetBool> sch_enable_safety_area_;
+  mrs_lib::ServiceClientHandler<std_srvs::SetBool> sch_enable_min_height_check_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::PathSrv> sch_path_;
 
   // params loaded from config file
   double _trajectory_dt_;
@@ -139,6 +142,11 @@ private:
   std::atomic<bool> see_landing_pad_ = false;
 
   ros::Time timeouter_;
+
+  std::string controller_;
+
+  bool   _heading_relative_to_pad_enabled_;
+  double _heading_relative_to_pad_;
 
   // aligning params
   double _aligning_speed_;
@@ -186,24 +194,29 @@ private:
   // aborting params
   double aborting_height_;
 
-  int    _loosing_alignment_threshold_;
-  double _object_visibility_timeout_;
-
   bool callbackLand(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool callbackStop(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackAbort(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
   void setController(std::string desired_controller);
 
   void disarm(void);
 
-  bool alignedWithTarget(const double position_thr, const double heading_thr, Alignment_t mode);
-  bool lastAlignmentCheck(void);
+  void enableSafetyArea(const bool state);
+
+  void enableMinHeightCheck(const bool state);
+
+  void gotoPath(const double x, const double y, const double z, const double hdg, const std::string &frame);
+
+  bool alignmentCheck(const double position_thr, const double heading_thr, Alignment_t mode);
+  bool alignment2Check(void);
 
   bool shouldTimeout(const double &timeout);
 
   // state machine
-  int current_state_, previous_state_;
-  int lost_alignment_counter, repeat_landing_counter;
+  int        current_state_, previous_state_;
+  std::mutex mutex_state_;
+
+  int repeat_landing_counter;
 
   ros::Timer state_machine_timer_;
   void       stateMachineTimer(const ros::TimerEvent &event);
@@ -233,6 +246,11 @@ void PreciseLanding::onInit() {
   param_loader.loadParam("rate", _main_rate_);
 
   param_loader.loadParam("trajectory_dt", _trajectory_dt_);
+
+  param_loader.loadParam("controller", controller_);
+
+  param_loader.loadParam("desired_heading/relative_to_pad/enabled", _heading_relative_to_pad_enabled_);
+  param_loader.loadParam("desired_heading/relative_to_pad/heading", _heading_relative_to_pad_);
 
   // aligning params
   param_loader.loadParam("stages/aligning/speed", _aligning_speed_);
@@ -295,11 +313,8 @@ void PreciseLanding::onInit() {
   // aborting params
   param_loader.loadParam("stages/aborting/height", aborting_height_);
 
-  param_loader.loadParam("loosing_alignment_threshold", _loosing_alignment_threshold_);
-  param_loader.loadParam("object_visibility_timeout", _object_visibility_timeout_);
-
   if (!param_loader.loadedSuccessfully()) {
-    ROS_ERROR("[PreciseLanding]: [ControlManager]: Could not load all parameters!");
+    ROS_ERROR("[PreciseLanding]: [PreciseLanding]: Could not load all parameters!");
     ros::shutdown();
   }
 
@@ -313,13 +328,16 @@ void PreciseLanding::onInit() {
 
   // | --------------------- service clients -------------------- |
 
-  sch_switch_controller_ = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "switch_controller_out");
-  sch_arming_            = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "arming_out");
+  sch_switch_controller_       = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "switch_controller_out");
+  sch_arming_                  = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "arming_out");
+  sch_enable_safety_area_      = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "enable_safety_area_out");
+  sch_enable_min_height_check_ = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "enable_min_height_check_out");
+  sch_path_                    = mrs_lib::ServiceClientHandler<mrs_msgs::PathSrv>(nh_, "path_out");
 
   // | --------------------- sercice servers -------------------- |
 
   service_server_land_  = nh_.advertiseService("land_in", &PreciseLanding::callbackLand, this);
-  service_servcer_stop_ = nh_.advertiseService("stop_in", &PreciseLanding::callbackStop, this);
+  service_servcer_stop_ = nh_.advertiseService("abort_in", &PreciseLanding::callbackAbort, this);
 
   // | ----------------------- subscribers ---------------------- |
 
@@ -333,8 +351,8 @@ void PreciseLanding::onInit() {
     shopts.queue_size         = 10;
     shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
 
-    sh_landing_tag_ = mrs_lib::SubscribeHandler<geometry_msgs::PoseWithCovarianceStamped>(shopts, "landing_pad_in", &PreciseLanding::callbackLandingTag, this,
-                                                                                          &PreciseLanding::callbackTimeoutTag, this);
+    sh_landing_pad_ = mrs_lib::SubscribeHandler<geometry_msgs::PoseWithCovarianceStamped>(shopts, "landing_pad_in", &PreciseLanding::callbackLandingPad, this,
+                                                                                          &PreciseLanding::callbackTimeoutPad, this);
   }
 
   {
@@ -357,9 +375,6 @@ void PreciseLanding::onInit() {
   current_state_  = IDLE_STATE;
   previous_state_ = IDLE_STATE;
 
-  lost_alignment_counter = 0;
-  repeat_landing_counter = 0;
-
   // | ------------------------- timers ------------------------- |
 
   // start timers
@@ -374,9 +389,9 @@ void PreciseLanding::onInit() {
 
 // | ------------------------ callbacks ----------------------- |
 
-/* callbackLandingTag() //{ */
+/* callbackLandingPad() //{ */
 
-void PreciseLanding::callbackLandingTag(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr msg) {
+void PreciseLanding::callbackLandingPad(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr msg) {
 
   ROS_INFO_ONCE("[PreciseLanding]: getting landing pad pose");
 
@@ -385,11 +400,9 @@ void PreciseLanding::callbackLandingTag(const geometry_msgs::PoseWithCovarianceS
 
 //}
 
-/* callbackTimeoutTag() //{ */
+/* callbackTimeoutPad() //{ */
 
-void PreciseLanding::callbackTimeoutTag([[maybe_unused]] const std::string &topic_name, [[maybe_unused]] const ros::Time &last_msg) {
-
-  ROS_WARN_THROTTLE(1.0, "[PreciseLanding]: the landing pad timeout");
+void PreciseLanding::callbackTimeoutPad([[maybe_unused]] const std::string &topic_name, [[maybe_unused]] const ros::Time &last_msg) {
 
   see_landing_pad_ = false;
 }
@@ -400,12 +413,16 @@ void PreciseLanding::callbackTimeoutTag([[maybe_unused]] const std::string &topi
 
 /* callbackStop() //{ */
 
-bool PreciseLanding::callbackStop([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool PreciseLanding::callbackAbort([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   res.success = true;
   res.message = "aborting landing";
 
-  changeState(ABORT_STATE);
+  {
+    std::scoped_lock lock(mutex_state_);
+
+    changeState(ABORT_STATE);
+  }
 
   return true;
 }
@@ -416,9 +433,55 @@ bool PreciseLanding::callbackStop([[maybe_unused]] std_srvs::Trigger::Request &r
 
 bool PreciseLanding::callbackLand(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
-  // TODO check preconditions
+  {
+    std::stringstream ss;
 
-  changeState(ALIGN_STATE);
+    if (!sh_uav_state_.hasMsg()) {
+      ss << "missing UAV state";
+      ROS_ERROR_STREAM_THROTTLE(1.0, "[PreciseLanding]: " << ss.str());
+      res.message = ss.str();
+      res.success = false;
+      return true;
+    }
+
+    if (!sh_landing_pad_.hasMsg()) {
+      ss << "missing landing pad detections";
+      ROS_ERROR_STREAM_THROTTLE(1.0, "[PreciseLanding]: " << ss.str());
+      res.message = ss.str();
+      res.success = false;
+      return true;
+    }
+
+    if (!sh_tracker_cmd_.hasMsg()) {
+      ss << "missing tracker cmd";
+      ROS_ERROR_STREAM_THROTTLE(1.0, "[PreciseLanding]: " << ss.str());
+      res.message = ss.str();
+      res.success = false;
+      return true;
+    }
+
+    if (!sh_mass_nominal_.hasMsg()) {
+      ss << "missing nominal mass";
+      ROS_ERROR_STREAM_THROTTLE(1.0, "[PreciseLanding]: " << ss.str());
+      res.message = ss.str();
+      res.success = false;
+      return true;
+    }
+
+    if (!sh_mass_estimate_.hasMsg()) {
+      ss << "missing estimated mass";
+      ROS_ERROR_STREAM_THROTTLE(1.0, "[PreciseLanding]: " << ss.str());
+      res.message = ss.str();
+      res.success = false;
+      return true;
+    }
+  }
+
+  {
+    std::scoped_lock lock(mutex_state_);
+
+    changeState(ALIGN_STATE);
+  }
 
   res.success = true;
   res.message = "landing has started";
@@ -451,7 +514,6 @@ void PreciseLanding::changeState(int newState) {
 
     case IDLE_STATE:
 
-      lost_alignment_counter = 0;
       repeat_landing_counter = 0;
 
       break;
@@ -462,7 +524,11 @@ void PreciseLanding::changeState(int newState) {
 
     case ALIGN_STATE:
 
-      setController("Se3Controller");  // TODO
+      setController(controller_);
+
+      enableSafetyArea(false);
+
+      enableMinHeightCheck(false);
 
       break;
 
@@ -540,7 +606,7 @@ void PreciseLanding::changeState(int newState) {
 std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(int trajectoryType) {
 
   auto tracker_cmd = sh_tracker_cmd_.getMsg();
-  auto landing_tag = sh_landing_tag_.getMsg();
+  auto landing_pad = sh_landing_pad_.getMsg();
 
   geometry_msgs::PoseStamped init_cond;
 
@@ -549,12 +615,12 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
     init_cond.pose.position    = tracker_cmd->position;
     init_cond.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0).setHeading(tracker_cmd->heading);
 
-    auto result = transformer_->transformSingle(init_cond, landing_tag->header.frame_id);
+    auto result = transformer_->transformSingle(init_cond, landing_pad->header.frame_id);
 
     if (result) {
       init_cond = result.value();
     } else {
-      ROS_ERROR("[PreciseLanding]: could not transform initial condition to '%s'", landing_tag->header.frame_id.c_str());
+      ROS_ERROR("[PreciseLanding]: could not transform initial condition to '%s'", landing_pad->header.frame_id.c_str());
     }
   }
 
@@ -563,10 +629,10 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
   double init_z   = init_cond.pose.position.z;
   double init_hdg = mrs_lib::AttitudeConverter(init_cond.pose.orientation).getHeading();
 
-  double landing_pad_x   = landing_tag->pose.pose.position.x;
-  double landing_pad_y   = landing_tag->pose.pose.position.y;
-  double landing_pad_z   = landing_tag->pose.pose.position.z;
-  double landing_pad_hdg = mrs_lib::AttitudeConverter(landing_tag->pose.pose.orientation).getHeading();
+  double landing_pad_x   = landing_pad->pose.pose.position.x;
+  double landing_pad_y   = landing_pad->pose.pose.position.y;
+  double landing_pad_z   = landing_pad->pose.pose.position.z;
+  double landing_pad_hdg = mrs_lib::AttitudeConverter(landing_pad->pose.pose.orientation).getHeading();
 
   // prepare the trajectorie
   // pose array for debugging
@@ -576,72 +642,9 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
   trajectory.use_heading = true;
   trajectory.header      = init_cond.header;
 
-  /* ALIGN_TRAJECTORY //{ */
+  /* DESCEND_TRAJECTORY //{ */
 
-  if (trajectoryType == ALIGN_TRAJECTORY) {
-
-    double target_heading, target_distance, desired_heading;
-
-    target_heading  = atan2(landing_pad_y - init_y, landing_pad_x - init_x);
-    target_distance = mrs_lib::geometry::dist(vec2_t(init_x, init_y), vec2_t(landing_pad_x, landing_pad_y));
-
-    desired_heading = landing_pad_hdg;  // TODO
-
-    /* double desired_height = _aligning_height_ > cmd_odom_stable.pose.position.z ? cmd_odom_stable.pose.position.z : _aligning_height_; */
-    double desired_z = landing_pad_z + _aligning_height_;
-
-    if (desired_z > init_z) {
-      desired_z = init_z;
-    }
-
-    double step_size = _aligning_speed_ * _trajectory_dt_;
-    int    n_steps   = int(floor(target_distance / step_size));
-
-    // the first point
-    {
-      mrs_msgs::Reference point;
-
-      point.position.x = init_x;
-      point.position.y = init_y;
-      point.position.z = init_z;
-      point.heading    = init_hdg;
-
-      trajectory.points.push_back(point);
-    }
-
-    // sample the trajectory
-    for (int i = 0; i < n_steps; i++) {
-
-      mrs_msgs::Reference point;
-
-      point.position.x = trajectory.points.back().position.x + cos(target_heading) * step_size;
-      point.position.y = trajectory.points.back().position.y + sin(target_heading) * step_size;
-      point.position.z = desired_z;
-      point.heading    = desired_heading;
-
-      trajectory.points.push_back(point);
-    }
-
-    // the last point = the landing pad
-    {
-      mrs_msgs::Reference point;
-
-      point.position.x = landing_pad_x;
-      point.position.y = landing_pad_y;
-      point.position.z = desired_z;
-      point.heading    = desired_heading;
-
-      trajectory.points.push_back(point);
-    }
-
-    // return the trajectory
-    return trajectory;
-
-    //}
-
-    /* DESCEND_TRAJECTORY //{ */
-
-  } else if (trajectoryType == DESCEND_TRAJECTORY) {
+  if (trajectoryType == DESCEND_TRAJECTORY) {
 
     double target_distance, direction, desired_height, desired_vector, desired_heading;
 
@@ -650,7 +653,11 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
     target_distance = fabs(desired_vector);
     direction       = (desired_vector <= 0) ? -1 : 1;
 
-    desired_heading = landing_pad_hdg;  // TODO
+    if (_heading_relative_to_pad_enabled_) {
+      desired_heading = landing_pad_hdg + _heading_relative_to_pad_;
+    } else {
+      desired_heading = init_hdg;
+    }
 
     double step_size = _descending_speed_ * _trajectory_dt_;
     int    n_steps   = int(floor(target_distance / step_size));
@@ -748,7 +755,13 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
 
   } else if (trajectoryType == LANDING_TRAJECTORY) {
 
-    double desired_heading = landing_pad_hdg;  // TODO
+    double desired_heading;
+
+    if (_heading_relative_to_pad_enabled_) {
+      desired_heading = landing_pad_hdg + _heading_relative_to_pad_;
+    } else {
+      desired_heading = init_hdg;
+    }
 
     double target_distance = init_z - landing_pad_z - _landing_height_;
     double direction       = -1;
@@ -809,7 +822,11 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
     target_distance = fabs(desired_vector);
     direction       = (desired_vector <= 0) ? -1 : 1;
 
-    desired_heading = init_hdg;
+    if (_heading_relative_to_pad_enabled_) {
+      desired_heading = landing_pad_hdg + _heading_relative_to_pad_;
+    } else {
+      desired_heading = init_hdg;
+    }
 
     double step_size = _repeating_speed_ * _trajectory_dt_;
     int    n_steps   = int(floor(target_distance / step_size));
@@ -916,10 +933,94 @@ void PreciseLanding::disarm(void) {
 
   if (res) {
     if (!srv.response.success) {
-      ROS_WARN_THROTTLE(1.0, "[PreciseLanding]: service call for arming() returned false: %s", srv.response.message.c_str());
+      ROS_WARN_THROTTLE(1.0, "[PreciseLanding]: service call for disarm() returned false: %s", srv.response.message.c_str());
     }
   } else {
-    ROS_ERROR("[PreciseLanding]: service call for arming() failed!");
+    ROS_ERROR("[PreciseLanding]: service call for disarm() failed!");
+  }
+}
+
+//}
+
+/* enableSafetyArea() //{ */
+
+void PreciseLanding::enableSafetyArea(const bool state) {
+
+  std_srvs::SetBool srv;
+  srv.request.data = state;
+
+  ROS_INFO("[PreciseLanding]: %s safety area", state ? "enabling" : "disabling");
+
+  bool res = sch_enable_safety_area_.call(srv);
+
+  if (res) {
+    if (!srv.response.success) {
+      ROS_WARN_THROTTLE(1.0, "[PreciseLanding]: service call for enableSafetyArea() returned false: %s", srv.response.message.c_str());
+    }
+  } else {
+    ROS_ERROR("[PreciseLanding]: service call for enableSafetyArea() failed!");
+  }
+}
+
+//}
+
+/* enableMinHeightCheck() //{ */
+
+void PreciseLanding::enableMinHeightCheck(const bool state) {
+
+  std_srvs::SetBool srv;
+  srv.request.data = state;
+
+  ROS_INFO("[PreciseLanding]: %s min height check", state ? "enabling" : "disabling");
+
+  bool res = sch_enable_min_height_check_.call(srv);
+
+  if (res) {
+    if (!srv.response.success) {
+      ROS_WARN_THROTTLE(1.0, "[PreciseLanding]: service call for enableMinHeightCheck() returned false: %s", srv.response.message.c_str());
+    }
+  } else {
+    ROS_ERROR("[PreciseLanding]: service call for enableMinHeightCheck() failed!");
+  }
+}
+
+//}
+
+/* gotoPath() //{ */
+
+void PreciseLanding::gotoPath(const double x, const double y, const double z, const double hdg, const std::string &frame) {
+
+  mrs_msgs::PathSrv srv;
+  srv.request.path.fly_now                 = true;
+  srv.request.path.header.frame_id         = frame;
+  srv.request.path.max_execution_time      = 0.9;
+  srv.request.path.max_deviation_from_path = 0.5;
+  srv.request.path.use_heading             = true;
+
+  srv.request.path.override_constraints                 = true;
+  srv.request.path.override_max_acceleration_vertical   = 2.0;
+  srv.request.path.override_max_acceleration_horizontal = 2.0;
+  srv.request.path.override_max_velocity_vertical       = _aligning_speed_;
+  srv.request.path.override_max_velocity_horizontal     = _aligning_speed_;
+  srv.request.path.override_max_jerk_vertical           = 20.0;
+  srv.request.path.override_max_jerk_horizontal         = 20.0;
+
+  mrs_msgs::Reference point;
+  point.position.x = x;
+  point.position.y = y;
+  point.position.z = z;
+  point.heading    = hdg;
+
+  srv.request.path.points.push_back(point);
+
+  bool res = sch_path_.call(srv);
+
+  if (res) {
+    if (!srv.response.success) {
+      ROS_WARN_THROTTLE(1.0, "[PreciseLanding]: service call for gotoPath() returned false: %s", srv.response.message.c_str());
+    }
+  } else {
+    ROS_ERROR("[PreciseLanding]: service call for gotoPath() failed!");
   }
 }
 
@@ -927,15 +1028,15 @@ void PreciseLanding::disarm(void) {
 
 // | -------------------- support routines -------------------- |
 
-/* alignedWithTarget() //{ */
+/* alignmentCheck() //{ */
 
-bool PreciseLanding::alignedWithTarget(const double position_thr, const double heading_thr, Alignment_t mode) {
+bool PreciseLanding::alignmentCheck(const double position_thr, const double heading_thr, Alignment_t mode) {
 
   auto                                     uav_state = sh_uav_state_.getMsg();
   geometry_msgs::PoseWithCovarianceStamped landing_pad;
 
   {
-    auto landing_pad_orig = sh_landing_tag_.getMsg();
+    auto landing_pad_orig = sh_landing_pad_.getMsg();
 
     auto result = transformer_->transformSingle(*landing_pad_orig, uav_state->header.frame_id);
 
@@ -950,22 +1051,27 @@ bool PreciseLanding::alignedWithTarget(const double position_thr, const double h
   double tar_x, tar_y, tar_z, tar_heading;
   double cur_x, cur_y, cur_z, cur_heading;
 
-  tar_x       = landing_pad.pose.pose.position.x;
-  tar_y       = landing_pad.pose.pose.position.y;
-  tar_z       = landing_pad.pose.pose.position.z + _aligning_height_;
-  tar_heading = mrs_lib::AttitudeConverter(landing_pad.pose.pose.orientation).getHeading();
+  tar_x = landing_pad.pose.pose.position.x;
+  tar_y = landing_pad.pose.pose.position.y;
+  tar_z = landing_pad.pose.pose.position.z + _aligning_height_;
 
   cur_x       = uav_state->pose.position.x;
   cur_y       = uav_state->pose.position.y;
   cur_z       = uav_state->pose.position.z;
   cur_heading = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getHeading();
 
+  if (_heading_relative_to_pad_enabled_) {
+    tar_heading = mrs_lib::AttitudeConverter(landing_pad.pose.pose.orientation).getHeading() + _heading_relative_to_pad_;
+  } else {
+    tar_heading = cur_heading;
+  }
+
   double position_error = 0;
 
   if (mode == MODE_3D) {
-    position_error = sqrt(pow(cur_x - tar_x, 2) + pow(cur_y - tar_y, 2) + pow(cur_z - tar_z, 2));
+    position_error = std::hypot(cur_x - tar_x, cur_y - tar_y, cur_z - tar_z);
   } else if (mode == MODE_2D) {
-    position_error = sqrt(pow(cur_x - tar_x, 2) + pow(cur_y - tar_y, 2));
+    position_error = std::hypot(cur_x - tar_x, cur_y - tar_y);
   }
 
   double heading_error = fabs(radians::diff(cur_heading, tar_heading));
@@ -981,15 +1087,16 @@ bool PreciseLanding::alignedWithTarget(const double position_thr, const double h
 
 //}
 
-/* lastAlignmentCheck() //{ */
+/* alignment2Check() //{ */
 
-bool PreciseLanding::lastAlignmentCheck(void) {
+bool PreciseLanding::alignment2Check(void) {
 
-  auto                                     uav_state = sh_uav_state_.getMsg();
+  auto uav_state = sh_uav_state_.getMsg();
+
   geometry_msgs::PoseWithCovarianceStamped landing_pad;
 
   {
-    auto landing_pad_orig = sh_landing_tag_.getMsg();
+    auto landing_pad_orig = sh_landing_pad_.getMsg();
 
     auto result = transformer_->transformSingle(*landing_pad_orig, uav_state->header.frame_id);
 
@@ -1004,13 +1111,18 @@ bool PreciseLanding::lastAlignmentCheck(void) {
   double tar_x, tar_y, tar_heading;
   double cur_x, cur_y, cur_heading;
 
-  tar_x       = landing_pad.pose.pose.position.x;
-  tar_y       = landing_pad.pose.pose.position.y;
-  tar_heading = mrs_lib::AttitudeConverter(landing_pad.pose.pose.orientation).getHeading();
+  tar_x = landing_pad.pose.pose.position.x;
+  tar_y = landing_pad.pose.pose.position.y;
 
   cur_x       = uav_state->pose.position.x;
   cur_y       = uav_state->pose.position.y;
   cur_heading = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getHeading();
+
+  if (_heading_relative_to_pad_enabled_) {
+    tar_heading = mrs_lib::AttitudeConverter(landing_pad.pose.pose.orientation).getHeading() + _heading_relative_to_pad_;
+  } else {
+    tar_heading = cur_heading;
+  }
 
   double position_error_x = abs(cur_x - tar_x);
   double position_error_y = abs(cur_y - tar_y);
@@ -1053,7 +1165,12 @@ bool PreciseLanding::shouldTimeout(const double &timeout) {
 
 void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &event) {
 
-  ROS_INFO_ONCE("[PreciseLanding]: got data, working...");
+  std::scoped_lock lock(mutex_state_);
+
+  auto landing_pad = sh_landing_pad_.getMsg();
+  auto tracker_cmd = sh_tracker_cmd_.getMsg();
+
+  ROS_INFO_ONCE("[PreciseLanding]: stateMachineTimer() running");
 
   double cmd_odom_stable_heading = 0;
 
@@ -1086,18 +1203,20 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
         changeState(ABORT_STATE);
       }
 
-      auto trajectory = createTrajectory(ALIGN_TRAJECTORY);
+      double des_x = landing_pad->pose.pose.position.x;
+      double des_y = landing_pad->pose.pose.position.y;
+      double des_z = landing_pad->pose.pose.position.z + _aligning_height_;
+      double des_heading;
 
-      if (trajectory) {
-
-        ph_trajectory_reference_.publish(trajectory.value());
-
+      if (_heading_relative_to_pad_enabled_) {
+        des_heading = mrs_lib::AttitudeConverter(landing_pad->pose.pose.orientation).getHeading() + _heading_relative_to_pad_;
       } else {
-
-        changeState(ABORT_STATE);
+        des_heading = tracker_cmd->heading;
       }
 
-      if (alignedWithTarget(_aligning_radius_, 0.1, MODE_3D)) {
+      gotoPath(des_x, des_y, des_z, des_heading, landing_pad->header.frame_id);
+
+      if (alignmentCheck(_aligning_radius_, 0.1, MODE_3D)) {
 
         ROS_INFO_THROTTLE(1, "[PreciseLanding]: aligned with the landing pad, DESCENDING");
 
@@ -1136,7 +1255,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
         changeState(ABORT_STATE);
       }
 
-      if (alignedWithTarget(0.2, 0.1, MODE_3D)) {
+      if (alignmentCheck(0.2, 0.1, MODE_3D)) {
 
         ROS_INFO("[PreciseLanding]: correct height reached, ALIGNING for landing");
 
@@ -1180,7 +1299,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
       ROS_INFO_THROTTLE(1.0, "[PreciseLanding]: alignment x crit: %.1f cm, y crit: %.1f cm", aligning2_current_x_crit_ * 100.0,
                         aligning2_current_y_crit_ * 100.0);
 
-      if (lastAlignmentCheck()) {
+      if (alignment2Check()) {
 
         if (!aligning2_in_radius_) {
 
@@ -1235,6 +1354,13 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
       auto nominal_msas   = sh_mass_nominal_.getMsg();
       auto estimated_mass = sh_mass_estimate_.getMsg();
 
+      if (estimated_mass->data < (0.8 * nominal_msas->data)) {
+
+        changeState(ABORT_STATE);
+
+        return;
+      }
+
       if (estimated_mass->data < (0.5 * nominal_msas->data)) {
 
         ROS_INFO("[PreciseLanding]: landing finished");
@@ -1263,7 +1389,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
       }
 
       // | -------------------- check the height -------------------- |
-      if (alignedWithTarget(0.3, 0.1, MODE_3D)) {
+      if (alignmentCheck(0.3, 0.1, MODE_3D)) {
 
         changeState(ALIGN_STATE);
       }
@@ -1285,7 +1411,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
         changeState(ABORT_STATE);
       }
 
-      if (alignedWithTarget(0.5, 0.1, MODE_3D)) {
+      if (alignmentCheck(0.5, 0.1, MODE_3D)) {
 
         changeState(IDLE_STATE);
       }
@@ -1307,11 +1433,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
         changeState(ABORT_STATE);
       }
 
-      // | --------------- check if we reached to top --------------- |
-      if (alignedWithTarget(0.5, 0.1, MODE_3D)) {
-
-        changeState(IDLE_STATE);
-      }
+      changeState(IDLE_STATE);
 
       break;
     }

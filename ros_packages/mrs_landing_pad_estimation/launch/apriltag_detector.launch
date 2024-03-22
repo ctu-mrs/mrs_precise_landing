@@ -7,17 +7,23 @@
   <arg name="image_topic" default="image_raw" />
   <arg name="queue_size" default="1" />
 
+  <arg name="custom_config" default="" />
+
   <group ns="$(arg UAV_NAME)">
 
     <!-- apriltag_ros continuous detection node -->
-    <node pkg="apriltag_ros" type="apriltag_ros_continuous_node" name="apriltag_ros_continuous_node" clear_params="true" output="screen">
+    <node pkg="apriltag_ros" type="apriltag_ros_continuous_node" name="apriltag_detector" clear_params="true" output="screen">
 
       <!-- load parameters (incl. tag family, tags, etc.) -->
-      <rosparam command="load" file="$(find mrs_precise_landing)/config/apriltag_recursive.yaml"/>
+      <rosparam command="load" file="$(find mrs_landing_pad_estimation)/config/apriltag_recursive.yaml"/>
+      <rosparam if="$(eval not arg('custom_config') == '')" file="$(arg custom_config)" />
 
       <!-- Remap topics from those used in code to those on the ROS network -->
       <remap from="image_rect" to="$(arg camera_name)/$(arg image_topic)" />
       <remap from="camera_info" to="$(arg camera_name)/camera_info" />
+
+      <remap from="tag_detections" to="~/tag_detections" />
+      <remap from="tag_detections_image" to="~/tag_detections_image" />
 
       <param name="publish_tag_detections_image" type="bool" value="true" /><!-- default: false -->
       <param name="queue_size" type="int" value="$(arg queue_size)" />

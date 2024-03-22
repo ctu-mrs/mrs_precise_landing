@@ -24,7 +24,7 @@
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
 
       <!-- subscribers -->
-      <remap from="~tag_detections_in" to="tag_detections" />
+      <remap from="~tag_detections_in" to="apriltag_detector/tag_detections" />
 
       <!-- publishers -->
       <remap from="~estimated_pose_out" to="~pose_estimate" />

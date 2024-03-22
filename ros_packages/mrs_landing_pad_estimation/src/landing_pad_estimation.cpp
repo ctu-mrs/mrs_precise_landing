@@ -291,6 +291,7 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
   }
   catch (...) {
     ROS_ERROR("[LandingPadEstimation]: correction step failed");
+    return;
   }
 
   ros::Time time_last_correction = ros::Time::now();
@@ -322,12 +323,16 @@ void LandingPadEstimation::publish() {
   auto [statecov, time_last_correction] = mrs_lib::get_mutexed(mutex_statecov_, statecov_, time_last_correction_);
 
   if (!statecov) {
-    ROS_INFO_THROTTLE(1.0, "[LandingPadEstimation]: not publishing, state not initialized");
     return;
   }
 
   if (time_last_correction == ros::Time::UNINITIALIZED || (ros::Time::now() - time_last_correction).toSec() > _correction_timeout_) {
-    ROS_WARN_THROTTLE(1.0, "[LandingPadEstimation]: not publishing, corrections too old, %f, %f", ros::Time::now().toSec(), time_last_correction.toSec());
+
+    ROS_WARN_THROTTLE(1.0, "[LandingPadEstimation]: landing pad detections timeouted");
+
+    time_last_correction_ = ros::Time::UNINITIALIZED;
+    mrs_lib::set_mutexed(mutex_statecov_, {}, statecov_);
+
     return;
   }
 
@@ -367,7 +372,8 @@ void LandingPadEstimation::iterate(const double dt) {
     statecov->stamp = ros::Time::now();
   }
   catch (...) {
-    ROS_ERROR("[LandingPadEstimation]: correction step failed");
+    ROS_ERROR("[LandingPadEstimation]: prediction step failed");
+    return;
   }
 
   ROS_DEBUG("[LandingPadEstimation]: predict: x=%.2f, y=%.2f, z=%.2f, hdg=%.2f", statecov->x[0], statecov->x[1], statecov->x[2], statecov->x[3]);
@@ -389,7 +395,10 @@ void LandingPadEstimation::timerMain([[maybe_unused]] const ros::TimerEvent& eve
     return;
   }
 
-  ROS_INFO_ONCE("[LandingPadEstimation]: timerMain spinning");
+  if (!statecov_) {
+  }
+
+  ROS_INFO_ONCE("[LandingPadEstimation]: timerMain() spinning");
 
   iterate((event.current_real - event.last_real).toSec());
 

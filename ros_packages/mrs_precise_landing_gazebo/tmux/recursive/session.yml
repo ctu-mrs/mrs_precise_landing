@@ -16,16 +16,12 @@ windows:
       layout: tiled
       panes:
         - waitForRos; roslaunch mrs_uav_gazebo_simulation simulation.launch world_file:=`rospack find mrs_precise_landing_gazebo`/worlds/apriltag_recursive.world gui:=true
-        - waitForGazebo; rosservice call /mrs_drone_spawner/spawn "1 $UAV_TYPE --enable-rangefinder --enable-bluefox-camera"
+        - waitForGazebo; rosservice call /mrs_drone_spawner/spawn "1 $UAV_TYPE --enable-rangefinder --enable-ground-truth --enable-bluefox-camera"
         - waitForControl; gz camera -c gzclient_camera -f $UAV_NAME; history -s gz camera -c gzclient_camera -f $UAV_NAME
   - status:
       layout: tiled
       panes:
         - waitForHw; roslaunch mrs_uav_status status.launch
-  - apriltag:
-      layout: tiled
-      panes:
-        - waitForControl; roslaunch mrs_precise_landing apriltag_detector.launch
   - hw_api:
       layout: tiled
       panes:
@@ -38,6 +34,10 @@ windows:
           custom_config:=./config/custom_config.yaml
           world_config:=./config/world_config.yaml
           network_config:=./config/network_config.yaml
+  - apriltag:
+      layout: tiled
+      panes:
+        - waitForControl; roslaunch mrs_landing_pad_estimation apriltag_detector.launch
   - estimator:
       layout: tiled
       panes:
@@ -49,7 +49,7 @@ windows:
   - land:
       layout: tiled
       panes:
-        - 'history -s rosservice call /$UAV_NAME/control_manager/goto \"goal: \[0.0, -5.0, 4.0, 0.0\]\"'
+        - 'history -s rosservice call /$UAV_NAME/control_manager/goto \"goal: \[0.0, 2.0, 5.0, 1.0\]\"'
         - 'history -s rosservice call /$UAV_NAME/precise_landing/land'
   - takeoff:
       layout: tiled
