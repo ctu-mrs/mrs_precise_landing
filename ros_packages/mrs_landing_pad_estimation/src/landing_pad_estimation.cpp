@@ -230,7 +230,7 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
   }
 
   if (!tag_pose) {
-    ROS_WARN_THROTTLE(1.0, "[LandingPadEstimation]: tags with the right ids not found");
+    ROS_DEBUG_THROTTLE(1.0, "[LandingPadEstimation]: tags with the right ids not found");
     return;
   }
 
@@ -260,6 +260,8 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
   }
 
   geometry_msgs::PoseWithCovarianceStamped tag_world_ = result.value();
+
+  ROS_INFO_ONCE("[LandingPadEstimation]: receiving the right AprilTag");
 
   // | ------------------ publish for debugging ----------------- |
 

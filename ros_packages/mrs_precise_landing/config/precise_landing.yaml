@@ -15,7 +15,7 @@ stages:
     speed: 1.0    # [m/s]
     height: 3.0   # [m]
     radius: 0.2   # [m]
-    timeout: 20.0 # [s]
+    timeout: 10.0 # [s]
 
   descending:
     speed: 0.5    # [m/s]
@@ -28,9 +28,9 @@ stages:
 
     criterion:
 
-      initial_radius: 0.03       # [m], +-
-      radius_increase_rate: 0.01 # [m/s]
-      limit_radius: 0.1          # [m/s]
+      initial_radius: 0.03         # [m], +-
+      radius_increase_rate: 0.005  # [m/s]
+      limit_radius: 0.08           # [m/s]
 
     in_alignment_duration: 0.5 # [s]
 
