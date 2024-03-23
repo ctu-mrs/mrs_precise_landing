@@ -362,7 +362,6 @@ void LandingPadEstimation::iterate(const double dt) {
   }
 
   if (dt < 0.001 || dt > 1.0) {
-    ROS_ERROR_THROTTLE(1.0, "[LandingPadEstimation]: not iterating, dt not healthy (%.4f)", dt);
     return;
   }
 

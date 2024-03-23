@@ -1,5 +1,8 @@
 controller: "Se3Controller"
 
+# the frame id in which all the operations are conducted
+frame_id: "fixed_origin"
+
 desired_heading:
 
   relative_to_pad:

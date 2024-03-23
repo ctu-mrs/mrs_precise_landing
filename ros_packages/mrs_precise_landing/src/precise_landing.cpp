@@ -113,6 +113,8 @@ private:
 
   std::string _uav_name_;
 
+  std::string _frame_id_;
+
   std::unique_ptr<mrs_lib::Transformer> transformer_;
 
   mrs_lib::PublisherHandler<mrs_msgs::TrajectoryReference> ph_trajectory_reference_;
@@ -212,6 +214,12 @@ private:
 
   bool shouldTimeout(const double &timeout);
 
+  std::optional<mrs_msgs::ReferenceStamped> getTransformedTrackerCmd(const std::string &frame_id);
+
+  std::optional<mrs_msgs::ReferenceStamped> getTransformedLandingPad(const std::string &frame_id);
+
+  std::optional<mrs_msgs::ReferenceStamped> getTransformedUavState(const std::string &frame_id);
+
   // state machine
   int        current_state_, previous_state_;
   std::mutex mutex_state_;
@@ -242,6 +250,8 @@ void PreciseLanding::onInit() {
   ros::Time::waitForValid();
 
   param_loader.loadParam("uav_name", _uav_name_);
+
+  param_loader.loadParam("frame_id", _frame_id_);
 
   param_loader.loadParam("rate", _main_rate_);
 
@@ -605,34 +615,22 @@ void PreciseLanding::changeState(int newState) {
 
 std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(int trajectoryType) {
 
-  auto tracker_cmd = sh_tracker_cmd_.getMsg();
-  auto landing_pad = sh_landing_pad_.getMsg();
+  auto tracker_cmd = getTransformedTrackerCmd(_frame_id_);
+  auto landing_pad = getTransformedLandingPad(_frame_id_);
 
-  geometry_msgs::PoseStamped init_cond;
-
-  {
-    init_cond.header           = tracker_cmd->header;
-    init_cond.pose.position    = tracker_cmd->position;
-    init_cond.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0).setHeading(tracker_cmd->heading);
-
-    auto result = transformer_->transformSingle(init_cond, landing_pad->header.frame_id);
-
-    if (result) {
-      init_cond = result.value();
-    } else {
-      ROS_ERROR("[PreciseLanding]: could not transform initial condition to '%s'", landing_pad->header.frame_id.c_str());
-    }
+  if (!tracker_cmd || !landing_pad) {
+    return {};
   }
 
-  double init_x   = init_cond.pose.position.x;
-  double init_y   = init_cond.pose.position.y;
-  double init_z   = init_cond.pose.position.z;
-  double init_hdg = mrs_lib::AttitudeConverter(init_cond.pose.orientation).getHeading();
+  double init_x   = tracker_cmd->reference.position.x;
+  double init_y   = tracker_cmd->reference.position.y;
+  double init_z   = tracker_cmd->reference.position.z;
+  double init_hdg = tracker_cmd->reference.heading;
 
-  double landing_pad_x   = landing_pad->pose.pose.position.x;
-  double landing_pad_y   = landing_pad->pose.pose.position.y;
-  double landing_pad_z   = landing_pad->pose.pose.position.z;
-  double landing_pad_hdg = mrs_lib::AttitudeConverter(landing_pad->pose.pose.orientation).getHeading();
+  double landing_pad_x   = landing_pad->reference.position.x;
+  double landing_pad_y   = landing_pad->reference.position.y;
+  double landing_pad_z   = landing_pad->reference.position.z;
+  double landing_pad_hdg = landing_pad->reference.heading;
 
   // prepare the trajectorie
   // pose array for debugging
@@ -640,7 +638,7 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
   tf::Quaternion                orientation;
   trajectory.fly_now     = true;
   trajectory.use_heading = true;
-  trajectory.header      = init_cond.header;
+  trajectory.header      = tracker_cmd->header;
 
   /* DESCEND_TRAJECTORY //{ */
 
@@ -1032,36 +1030,27 @@ void PreciseLanding::gotoPath(const double x, const double y, const double z, co
 
 bool PreciseLanding::alignmentCheck(const double position_thr, const double heading_thr, Alignment_t mode) {
 
-  auto                                     uav_state = sh_uav_state_.getMsg();
-  geometry_msgs::PoseWithCovarianceStamped landing_pad;
+  auto uav_state   = getTransformedUavState(_frame_id_);
+  auto landing_pad = getTransformedLandingPad(_frame_id_);
 
-  {
-    auto landing_pad_orig = sh_landing_pad_.getMsg();
-
-    auto result = transformer_->transformSingle(*landing_pad_orig, uav_state->header.frame_id);
-
-    if (!result) {
-      ROS_ERROR("[PreciseLanding]: could not transform landing_pad to '%s'", uav_state->header.frame_id.c_str());
-      return false;
-    }
-
-    landing_pad = result.value();
+  if (!landing_pad || !uav_state) {
+    return false;
   }
 
   double tar_x, tar_y, tar_z, tar_heading;
   double cur_x, cur_y, cur_z, cur_heading;
 
-  tar_x = landing_pad.pose.pose.position.x;
-  tar_y = landing_pad.pose.pose.position.y;
-  tar_z = landing_pad.pose.pose.position.z + _aligning_height_;
+  tar_x = landing_pad->reference.position.x;
+  tar_y = landing_pad->reference.position.y;
+  tar_z = landing_pad->reference.position.z + _aligning_height_;
 
-  cur_x       = uav_state->pose.position.x;
-  cur_y       = uav_state->pose.position.y;
-  cur_z       = uav_state->pose.position.z;
-  cur_heading = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getHeading();
+  cur_x       = uav_state->reference.position.x;
+  cur_y       = uav_state->reference.position.y;
+  cur_z       = uav_state->reference.position.z;
+  cur_heading = uav_state->reference.heading;
 
   if (_heading_relative_to_pad_enabled_) {
-    tar_heading = mrs_lib::AttitudeConverter(landing_pad.pose.pose.orientation).getHeading() + _heading_relative_to_pad_;
+    tar_heading = landing_pad->reference.heading + _heading_relative_to_pad_;
   } else {
     tar_heading = cur_heading;
   }
@@ -1091,35 +1080,25 @@ bool PreciseLanding::alignmentCheck(const double position_thr, const double head
 
 bool PreciseLanding::alignment2Check(void) {
 
-  auto uav_state = sh_uav_state_.getMsg();
+  auto uav_state   = getTransformedUavState(_frame_id_);
+  auto landing_pad = getTransformedLandingPad(_frame_id_);
 
-  geometry_msgs::PoseWithCovarianceStamped landing_pad;
-
-  {
-    auto landing_pad_orig = sh_landing_pad_.getMsg();
-
-    auto result = transformer_->transformSingle(*landing_pad_orig, uav_state->header.frame_id);
-
-    if (!result) {
-      ROS_ERROR("[PreciseLanding]: could not transform landing_pad to '%s'", uav_state->header.frame_id.c_str());
-      return false;
-    }
-
-    landing_pad = result.value();
+  if (!landing_pad || !uav_state) {
+    return false;
   }
 
   double tar_x, tar_y, tar_heading;
   double cur_x, cur_y, cur_heading;
 
-  tar_x = landing_pad.pose.pose.position.x;
-  tar_y = landing_pad.pose.pose.position.y;
+  tar_x = landing_pad->reference.position.x;
+  tar_y = landing_pad->reference.position.y;
 
-  cur_x       = uav_state->pose.position.x;
-  cur_y       = uav_state->pose.position.y;
-  cur_heading = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getHeading();
+  cur_x       = uav_state->reference.position.x;
+  cur_y       = uav_state->reference.position.y;
+  cur_heading = uav_state->reference.heading;
 
   if (_heading_relative_to_pad_enabled_) {
-    tar_heading = mrs_lib::AttitudeConverter(landing_pad.pose.pose.orientation).getHeading() + _heading_relative_to_pad_;
+    tar_heading = landing_pad->reference.heading + _heading_relative_to_pad_;
   } else {
     tar_heading = cur_heading;
   }
@@ -1157,6 +1136,102 @@ bool PreciseLanding::shouldTimeout(const double &timeout) {
 
 //}
 
+/* getTransformedTrackerCmd() //{ */
+
+std::optional<mrs_msgs::ReferenceStamped> PreciseLanding::getTransformedTrackerCmd(const std::string &frame_id) {
+
+  if (!sh_tracker_cmd_.hasMsg()) {
+    return {};
+  }
+
+  auto tracker_cmd = sh_tracker_cmd_.getMsg();
+
+  mrs_msgs::ReferenceStamped out;
+
+  {
+    out.header             = tracker_cmd->header;
+    out.reference.position = tracker_cmd->position;
+    out.reference.heading  = tracker_cmd->heading;
+
+    auto result = transformer_->transformSingle(out, _frame_id_);
+
+    if (result) {
+      out = result.value();
+    } else {
+      ROS_ERROR("[PreciseLanding]: could not transform tracker cmd to '%s'", _frame_id_.c_str());
+      return {};
+    }
+  }
+
+  return {out};
+}
+
+//}
+
+/* getTransformedLandingPad() //{ */
+
+std::optional<mrs_msgs::ReferenceStamped> PreciseLanding::getTransformedLandingPad(const std::string &frame_id) {
+
+  if (!sh_landing_pad_.hasMsg()) {
+    return {};
+  }
+
+  auto landing_pad = sh_landing_pad_.getMsg();
+
+  mrs_msgs::ReferenceStamped out;
+
+  {
+    out.header             = landing_pad->header;
+    out.reference.position = landing_pad->pose.pose.position;
+    out.reference.heading  = mrs_lib::AttitudeConverter(landing_pad->pose.pose.orientation).getHeading();
+
+    auto result = transformer_->transformSingle(out, _frame_id_);
+
+    if (result) {
+      out = result.value();
+    } else {
+      ROS_ERROR("[PreciseLanding]: could not transform landing pad to '%s'", _frame_id_.c_str());
+      return {};
+    }
+  }
+
+  return {out};
+}
+
+//}
+
+/* getTransformedUavState() //{ */
+
+std::optional<mrs_msgs::ReferenceStamped> PreciseLanding::getTransformedUavState(const std::string &frame_id) {
+
+  if (!sh_uav_state_.hasMsg()) {
+    return {};
+  }
+
+  auto uav_state = sh_uav_state_.getMsg();
+
+  mrs_msgs::ReferenceStamped out;
+
+  {
+    out.header             = uav_state->header;
+    out.reference.position = uav_state->pose.position;
+    out.reference.heading  = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getHeading();
+
+    auto result = transformer_->transformSingle(out, _frame_id_);
+
+    if (result) {
+      result = result.value();
+    } else {
+      ROS_ERROR("[PreciseLanding]: could not transform UAV state to '%s'", _frame_id_.c_str());
+      return {};
+    }
+  }
+
+  return {out};
+}
+
+//}
+
 // --------------------------------------------------------------
 // |                           timers                           |
 // --------------------------------------------------------------
@@ -1165,10 +1240,11 @@ bool PreciseLanding::shouldTimeout(const double &timeout) {
 
 void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &event) {
 
-  std::scoped_lock lock(mutex_state_);
+  if (!is_initialized_) {
+    return;
+  }
 
-  auto landing_pad = sh_landing_pad_.getMsg();
-  auto tracker_cmd = sh_tracker_cmd_.getMsg();
+  std::scoped_lock lock(mutex_state_);
 
   ROS_INFO_ONCE("[PreciseLanding]: stateMachineTimer() running");
 
@@ -1203,18 +1279,21 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
         changeState(ABORT_STATE);
       }
 
-      double des_x = landing_pad->pose.pose.position.x;
-      double des_y = landing_pad->pose.pose.position.y;
-      double des_z = landing_pad->pose.pose.position.z + _aligning_height_;
+      auto landing_pad = getTransformedLandingPad(_frame_id_);
+      auto tracker_cmd = getTransformedTrackerCmd(_frame_id_);
+
+      double des_x = landing_pad->reference.position.x;
+      double des_y = landing_pad->reference.position.y;
+      double des_z = landing_pad->reference.position.z + _aligning_height_;
       double des_heading;
 
       if (_heading_relative_to_pad_enabled_) {
-        des_heading = mrs_lib::AttitudeConverter(landing_pad->pose.pose.orientation).getHeading() + _heading_relative_to_pad_;
+        des_heading = landing_pad->reference.heading + _heading_relative_to_pad_;
       } else {
-        des_heading = tracker_cmd->heading;
+        des_heading = tracker_cmd->reference.heading;
       }
 
-      gotoPath(des_x, des_y, des_z, des_heading, landing_pad->header.frame_id);
+      gotoPath(des_x, des_y, des_z, des_heading, _frame_id_);
 
       if (alignmentCheck(_aligning_radius_, 0.1, MODE_3D)) {
 
