@@ -13,13 +13,13 @@ stages:
 
   aligning:
     speed: 1.0    # [m/s]
-    height: 2.0   # [m]
+    height: 3.0   # [m]
     radius: 0.2   # [m]
     timeout: 20.0 # [s]
 
   descending:
-    speed: 0.3    # [m/s]
-    height: 0.8   # [m]
+    speed: 0.5    # [m/s]
+    height: 1.0   # [m]
     timeout: 10.0 # [s]
 
   aligning2:
@@ -33,7 +33,6 @@ stages:
       limit_radius: 0.1          # [m/s]
 
     in_alignment_duration: 0.5 # [s]
-    alignment_criterion: 1     # {0 = control_error, 1 = pad detection}
 
   landing:
     speed: 0.25          # [m/s]

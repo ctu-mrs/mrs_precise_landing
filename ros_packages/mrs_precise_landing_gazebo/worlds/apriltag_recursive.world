@@ -35,7 +35,7 @@
     </physics>
 
     <scene>
-      <shadows>0</shadows>
+      <shadows>1</shadows>
       <ambient>0.4 0.4 0.4 1</ambient>
       <background>0.7 0.7 0.7 1</background>
     </scene>
@@ -60,53 +60,6 @@
         <falloff>0</falloff>
       </spot>
     </light>
-
-    <!--}-->
-
-    <!-- ground plane {-->
-
-    <model name='ground_plane'>
-      <static>1</static>
-      <link name='link'>
-        <collision name='collision'>
-          <pose>0 0 0 0 -0 0</pose>
-          <geometry>
-            <plane>
-              <normal>0 0 1</normal>
-              <size>250 250</size>
-            </plane>
-          </geometry>
-          <surface>
-            <friction>
-              <ode>
-                <mu>1</mu>
-                <mu2>1</mu2>
-              </ode>
-              <torsional>
-                <ode/>
-              </torsional>
-            </friction>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-          </surface>
-          <max_contacts>10</max_contacts>
-        </collision>
-        <visual name='grass'>
-          <pose>0 0 0 0 -0 0</pose>
-          <cast_shadows>0</cast_shadows>
-          <geometry>
-            <mesh>
-              <uri>file://grass_plane/meshes/grass_plane.dae</uri>
-            </mesh>
-          </geometry>
-        </visual>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-    </model>
 
     <!--}-->
 
@@ -140,34 +93,57 @@
 
     <wind/>
 
-    <state world_name='default'>
-      <sim_time>253 748000000</sim_time>
-      <real_time>56 382306010</real_time>
-      <wall_time>1710939471 61840082</wall_time>
-      <iterations>13949</iterations>
-
-      <model name='ground_plane'>
-        <pose>0 0 0 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose>0 0 0 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-
-      <light name='sun'>
-        <pose>0 0 1000 0.4 0.2 0</pose>
-      </light>
-
-    </state>
-
-    <!--  world {-->
     <include>
       <uri>model://Apriltag_recursive1</uri>
       <pose>1 1 1 0 0 1.2</pose>
     </include>
+
+    <!-- ground plane {-->
+
+    <model name='ground_plane'>
+      <static>1</static>
+      <link name='link'>
+        <collision name='collision'>
+          <pose>0 0 0 0 0 0</pose>
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>250 250</size>
+            </plane>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='grass'>
+          <pose>0 0 0 0 0 0</pose>
+          <cast_shadows>0</cast_shadows>
+          <geometry>
+            <mesh>
+              <uri>file://grass_plane/meshes/grass_plane.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+    </model>
+
+    <!--}-->
 
   </world>
 

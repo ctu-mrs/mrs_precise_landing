@@ -43,18 +43,6 @@ using sradians = mrs_lib::geometry::sradians;
 
 //}
 
-/* defines //{ */
-
-#define POS_X 0
-#define POS_Y 1
-#define POS_Z 2
-#define ANGLE 3
-
-#define ALIGNMENT_CRITERION_CONTROL_ERROR 0
-#define ALIGNMENT_CRITERION_PAD_DETECTION 1
-
-//}
-
 /* STRUCTURES and TYPEDEFS //{ */
 
 typedef enum
@@ -169,7 +157,6 @@ private:
   double _aligning2_criterion_radius_limit_;
 
   double _aligning2_in_alignment_duration_;
-  int    _aligning2_alignment_criterion_;
 
   ros::Time aligning2_in_radius_time_;
   bool      aligning2_in_radius_ = false;
@@ -207,8 +194,7 @@ private:
 
   void gotoPath(const double x, const double y, const double z, const double hdg, const std::string &frame);
 
-  bool alignmentCheck(const double position_thr, const double heading_thr, Alignment_t mode);
-  bool alignment2Check(void);
+  bool alignmentCheck(const double &desired_height, const double &position_thr, const double &heading_thr);
 
   bool shouldTimeout(const double &timeout);
 
@@ -278,31 +264,7 @@ void PreciseLanding::onInit() {
   param_loader.loadParam("stages/aligning2/criterion/radius_increase_rate", _aligning2_criterion_radius_increase_rate_);
   param_loader.loadParam("stages/aligning2/criterion/limit_radius", _aligning2_criterion_radius_limit_);
 
-  param_loader.loadParam("stages/aligning2/alignment_criterion", _aligning2_alignment_criterion_);
   param_loader.loadParam("stages/aligning2/in_alignment_duration", _aligning2_in_alignment_duration_);
-
-  if (!(_aligning2_alignment_criterion_ == ALIGNMENT_CRITERION_CONTROL_ERROR || _aligning2_alignment_criterion_ == ALIGNMENT_CRITERION_PAD_DETECTION)) {
-
-    ROS_ERROR("[PreciseLanding]: the chosen alignment criterion not valid!");
-    ros::shutdown();
-
-  } else {
-
-    std::string criterion_name;
-
-    switch (_aligning2_alignment_criterion_) {
-      case ALIGNMENT_CRITERION_CONTROL_ERROR: {
-        criterion_name = "control error";
-        break;
-      }
-      case ALIGNMENT_CRITERION_PAD_DETECTION: {
-        criterion_name = "pad detection";
-        break;
-      }
-    }
-
-    ROS_INFO("[PreciseLanding]: alignment criterion: %s", criterion_name.c_str());
-  }
 
   // landing params
   param_loader.loadParam("stages/landing/speed", _landing_speed_);
@@ -591,6 +553,8 @@ void PreciseLanding::changeState(int newState) {
 
     case ABORT_STATE:
 
+      ROS_DEBUG("[PreciseLanding]: aborting");
+
       break;
 
       //}
@@ -598,6 +562,8 @@ void PreciseLanding::changeState(int newState) {
       /* ASCEND_STATE //{ */
 
     case ASCEND_STATE:
+
+      ROS_DEBUG("[PreciseLanding]: ascending");
 
       break;
 
@@ -1022,97 +988,6 @@ void PreciseLanding::gotoPath(const double x, const double y, const double z, co
 
 // | -------------------- support routines -------------------- |
 
-/* alignmentCheck() //{ */
-
-bool PreciseLanding::alignmentCheck(const double position_thr, const double heading_thr, Alignment_t mode) {
-
-  auto uav_state   = getTransformedUavState(_frame_id_);
-  auto landing_pad = getTransformedLandingPad(_frame_id_);
-
-  if (!landing_pad || !uav_state) {
-    return false;
-  }
-
-  double tar_x, tar_y, tar_z, tar_heading;
-  double cur_x, cur_y, cur_z, cur_heading;
-
-  tar_x = landing_pad->reference.position.x;
-  tar_y = landing_pad->reference.position.y;
-  tar_z = landing_pad->reference.position.z + _aligning_height_;
-
-  cur_x       = uav_state->reference.position.x;
-  cur_y       = uav_state->reference.position.y;
-  cur_z       = uav_state->reference.position.z;
-  cur_heading = uav_state->reference.heading;
-
-  if (_heading_relative_to_pad_enabled_) {
-    tar_heading = landing_pad->reference.heading + _heading_relative_to_pad_;
-  } else {
-    tar_heading = cur_heading;
-  }
-
-  double position_error = 0;
-
-  if (mode == MODE_3D) {
-    position_error = std::hypot(cur_x - tar_x, cur_y - tar_y, cur_z - tar_z);
-  } else if (mode == MODE_2D) {
-    position_error = std::hypot(cur_x - tar_x, cur_y - tar_y);
-  }
-
-  double heading_error = fabs(radians::diff(cur_heading, tar_heading));
-
-  ROS_INFO_THROTTLE(1.0, "[PreciseLanding]: position error during alignment: %.3f m", position_error);
-
-  if (position_error < position_thr && heading_error < heading_thr) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-//}
-
-/* alignment2Check() //{ */
-
-bool PreciseLanding::alignment2Check(void) {
-
-  auto uav_state   = getTransformedUavState(_frame_id_);
-  auto landing_pad = getTransformedLandingPad(_frame_id_);
-
-  if (!landing_pad || !uav_state) {
-    return false;
-  }
-
-  double tar_x, tar_y, tar_heading;
-  double cur_x, cur_y, cur_heading;
-
-  tar_x = landing_pad->reference.position.x;
-  tar_y = landing_pad->reference.position.y;
-
-  cur_x       = uav_state->reference.position.x;
-  cur_y       = uav_state->reference.position.y;
-  cur_heading = uav_state->reference.heading;
-
-  if (_heading_relative_to_pad_enabled_) {
-    tar_heading = landing_pad->reference.heading + _heading_relative_to_pad_;
-  } else {
-    tar_heading = cur_heading;
-  }
-
-  double position_error = std::hypot(cur_x - tar_x, cur_y - tar_y);
-  double heading_error  = fabs(radians::diff(cur_heading, tar_heading));
-
-  ROS_INFO_THROTTLE(1.0, "[PreciseLanding]: alignment error (control mode): lateral=%.3f m, heading=%.3f", position_error, heading_error);
-
-  if (position_error < aligning2_current_radius_ && heading_error < 0.1) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-//}
-
 /* shouldTimeout() //{ */
 
 bool PreciseLanding::shouldTimeout(const double &timeout) {
@@ -1226,6 +1101,48 @@ std::optional<mrs_msgs::ReferenceStamped> PreciseLanding::getTransformedUavState
 
 //}
 
+/* alignmentCheck() //{ */
+
+bool PreciseLanding::alignmentCheck(const double &desired_height, const double &position_thr, const double &heading_thr) {
+
+  auto uav_state   = getTransformedUavState(_frame_id_);
+  auto landing_pad = getTransformedLandingPad(_frame_id_);
+
+  if (!landing_pad || !uav_state) {
+    return false;
+  }
+
+  double tar_x, tar_y, tar_z, tar_heading;
+  double cur_x, cur_y, cur_z, cur_heading;
+
+  tar_x = landing_pad->reference.position.x;
+  tar_y = landing_pad->reference.position.y;
+  tar_z = landing_pad->reference.position.z + desired_height;
+
+  cur_x       = uav_state->reference.position.x;
+  cur_y       = uav_state->reference.position.y;
+  cur_z       = uav_state->reference.position.z;
+  cur_heading = uav_state->reference.heading;
+
+  if (_heading_relative_to_pad_enabled_) {
+    tar_heading = landing_pad->reference.heading + _heading_relative_to_pad_;
+  } else {
+    tar_heading = cur_heading;
+  }
+
+  double position_error = std::hypot(cur_x - tar_x, cur_y - tar_y, cur_z - tar_z);
+
+  double heading_error = fabs(radians::diff(cur_heading, tar_heading));
+
+  if (position_error < position_thr && heading_error < heading_thr) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+//}
+
 // --------------------------------------------------------------
 // |                           timers                           |
 // --------------------------------------------------------------
@@ -1289,7 +1206,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
       gotoPath(des_x, des_y, des_z, des_heading, _frame_id_);
 
-      if (alignmentCheck(_aligning_radius_, 0.1, MODE_3D)) {
+      if (alignmentCheck(_aligning_height_, _aligning_radius_, 0.1)) {
 
         ROS_INFO_THROTTLE(1, "[PreciseLanding]: aligned with the landing pad, DESCENDING");
 
@@ -1328,7 +1245,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
         changeState(ABORT_STATE);
       }
 
-      if (alignmentCheck(0.2, 0.1, MODE_3D)) {
+      if (alignmentCheck(_descending_height_, 0.1, 0.1)) {
 
         ROS_INFO("[PreciseLanding]: correct height reached, ALIGNING for landing");
 
@@ -1366,15 +1283,9 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
         changeState(ABORT_STATE);
       }
 
-      aligning2_current_radius_ += (1.0 / _main_rate_) * _aligning2_criterion_radius_increase_rate_;
-
-      if (aligning2_current_radius_ > _aligning2_criterion_radius_limit_) {
-        aligning2_current_radius_ = _aligning2_criterion_radius_limit_;
-      }
-
       ROS_INFO_THROTTLE(1.0, "[PreciseLanding]: alignment radius criterion: %.1f cm", aligning2_current_radius_ * 100.0);
 
-      if (alignment2Check()) {
+      if (alignmentCheck(_descending_height_, aligning2_current_radius_, 0.1)) {
 
         if (!aligning2_in_radius_) {
 
@@ -1383,6 +1294,12 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
         }
 
       } else {
+
+        aligning2_current_radius_ += (1.0 / _main_rate_) * _aligning2_criterion_radius_increase_rate_;
+
+        if (aligning2_current_radius_ > _aligning2_criterion_radius_limit_) {
+          aligning2_current_radius_ = _aligning2_criterion_radius_limit_;
+        }
 
         if (aligning2_in_radius_) {
 
@@ -1393,6 +1310,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
       }
 
       // | ---------------- check the alignment time ---------------- |
+
       if (aligning2_in_radius_) {
 
         double alignemnt_held_for = (ros::Time::now() - aligning2_in_radius_time_).toSec();

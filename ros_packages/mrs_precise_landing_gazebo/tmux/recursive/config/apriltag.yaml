@@ -19,6 +19,6 @@ transport_hint:    "raw"      # default: raw, see http://wiki.ros.org/image_tran
 #   ]
 standalone_tags:
   [
-    {id: 0, size: 0.6, name: recursive_tag_1_big},
-    {id: 10, size: 0.12, name: recursive_tag_1_small},
+    {id: 0, size: 0.3, name: recursive_tag_1_big},
+    {id: 10, size: 0.06, name: recursive_tag_1_small},
   ]
