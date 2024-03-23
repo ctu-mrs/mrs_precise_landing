@@ -2,6 +2,8 @@
 
 #include <ros/ros.h>
 #include <nodelet/nodelet.h>
+
+#include <map>
 #include <Eigen/Eigen>
 
 #include <mrs_lib/lkf.h>
@@ -13,8 +15,6 @@
 #include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/subscribe_handler.h>
 #include <mrs_lib/publisher_handler.h>
-
-#include <map>
 
 #include <apriltag_ros/AprilTagDetectionArray.h>
 #include <apriltag_ros/AprilTagDetection.h>
@@ -94,6 +94,7 @@ private:
   mrs_lib::SubscribeHandler<apriltag_ros::AprilTagDetectionArray> sh_tag_detections_;
 
   mrs_lib::PublisherHandler<geometry_msgs::PoseWithCovarianceStamped> ph_pose_;
+  mrs_lib::PublisherHandler<geometry_msgs::PoseWithCovarianceStamped> ph_measurement_;
 
   void callbackTagDetections(const apriltag_ros::AprilTagDetectionArray::ConstPtr msg);
 
@@ -171,7 +172,8 @@ void LandingPadEstimation::onInit() {
 
   // | ----------------------- publishers ----------------------- |
 
-  ph_pose_ = mrs_lib::PublisherHandler<geometry_msgs::PoseWithCovarianceStamped>(nh_, "estimated_pose_out", 10);
+  ph_pose_        = mrs_lib::PublisherHandler<geometry_msgs::PoseWithCovarianceStamped>(nh_, "estimated_pose_out", 10);
+  ph_measurement_ = mrs_lib::PublisherHandler<geometry_msgs::PoseWithCovarianceStamped>(nh_, "measurement_pose_out", 10);
 
   // | ------------------------- timers ------------------------- |
 
@@ -259,6 +261,10 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
 
   geometry_msgs::PoseWithCovarianceStamped tag_world_ = result.value();
 
+  // | ------------------ publish for debugging ----------------- |
+
+  ph_measurement_.publish(tag_world_);
+
   // | -------------------------- fuse -------------------------- |
 
   auto statecov = mrs_lib::get_mutexed(mutex_statecov_, statecov_);
@@ -304,8 +310,7 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
     statecov_             = statecov;
     time_last_correction_ = time_last_correction;
   }
-
-}  // namespace mrs_landing_pad_estimation
+}
 
 //}
 
@@ -315,9 +320,6 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
 
 /* publish() //{ */
 
-/**
- * @brief LandingPadEstimation::publish
- */
 void LandingPadEstimation::publish() {
 
   auto [statecov, time_last_correction] = mrs_lib::get_mutexed(mutex_statecov_, statecov_, time_last_correction_);

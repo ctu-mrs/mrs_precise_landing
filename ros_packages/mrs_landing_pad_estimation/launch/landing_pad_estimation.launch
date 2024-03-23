@@ -37,11 +37,12 @@
 
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
 
-      <!-- subscribers -->
+        <!-- subscribers -->
       <remap from="~tag_detections_in" to="apriltag_detector/tag_detections" />
 
-      <!-- publishers -->
+        <!-- publishers -->
       <remap from="~estimated_pose_out" to="~pose_estimate" />
+      <remap from="~measurement_pose_out" to="~pose_measurement" />
 
     </node>
 

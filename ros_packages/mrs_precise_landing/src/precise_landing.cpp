@@ -164,18 +164,16 @@ private:
   // aligning2 params
   double _aligning2_timeout_;
 
-  double _aligning2_criterion_initial_x_;
-  double _aligning2_criterion_initial_y_;
-  double _aligning2_criterion_increase_rate_x_;
-  double _aligning2_criterion_increase_rate_y_;
+  double _aligning2_criterion_initial_radius_;
+  double _aligning2_criterion_radius_increase_rate_;
+  double _aligning2_criterion_radius_limit_;
 
   double _aligning2_in_alignment_duration_;
   int    _aligning2_alignment_criterion_;
 
   ros::Time aligning2_in_radius_time_;
   bool      aligning2_in_radius_ = false;
-  double    aligning2_current_x_crit_;
-  double    aligning2_current_y_crit_;
+  double    aligning2_current_radius_;
 
   // landing params
   ros::Time landing_since_;
@@ -276,10 +274,9 @@ void PreciseLanding::onInit() {
   // aligning2 params
   param_loader.loadParam("stages/aligning2/timeout", _aligning2_timeout_);
 
-  param_loader.loadParam("stages/aligning2/criterion/initial_x", _aligning2_criterion_initial_x_);
-  param_loader.loadParam("stages/aligning2/criterion/initial_y", _aligning2_criterion_initial_y_);
-  param_loader.loadParam("stages/aligning2/criterion/x_increase_rate", _aligning2_criterion_increase_rate_x_);
-  param_loader.loadParam("stages/aligning2/criterion/y_increase_rate", _aligning2_criterion_increase_rate_y_);
+  param_loader.loadParam("stages/aligning2/criterion/initial_radius", _aligning2_criterion_initial_radius_);
+  param_loader.loadParam("stages/aligning2/criterion/radius_increase_rate", _aligning2_criterion_radius_increase_rate_);
+  param_loader.loadParam("stages/aligning2/criterion/limit_radius", _aligning2_criterion_radius_limit_);
 
   param_loader.loadParam("stages/aligning2/alignment_criterion", _aligning2_alignment_criterion_);
   param_loader.loadParam("stages/aligning2/in_alignment_duration", _aligning2_in_alignment_duration_);
@@ -558,8 +555,7 @@ void PreciseLanding::changeState(int newState) {
 
       aligning2_in_radius_time_ = ros::Time(0);
       aligning2_in_radius_      = false;
-      aligning2_current_x_crit_ = _aligning2_criterion_initial_x_;
-      aligning2_current_y_crit_ = _aligning2_criterion_initial_y_;
+      aligning2_current_radius_ = _aligning2_criterion_initial_radius_;
 
       break;
 
@@ -1103,14 +1099,12 @@ bool PreciseLanding::alignment2Check(void) {
     tar_heading = cur_heading;
   }
 
-  double position_error_x = abs(cur_x - tar_x);
-  double position_error_y = abs(cur_y - tar_y);
-  double heading_error    = fabs(radians::diff(cur_heading, tar_heading));
+  double position_error = std::hypot(cur_x - tar_x, cur_y - tar_y);
+  double heading_error  = fabs(radians::diff(cur_heading, tar_heading));
 
-  ROS_INFO_THROTTLE(1.0, "[PreciseLanding]: alignment error (control mode): x=%.3f m, y=%.3f m, heading=%.3f", position_error_x, position_error_y,
-                    heading_error);
+  ROS_INFO_THROTTLE(1.0, "[PreciseLanding]: alignment error (control mode): lateral=%.3f m, heading=%.3f", position_error, heading_error);
 
-  if (position_error_x < aligning2_current_x_crit_ && position_error_y < aligning2_current_y_crit_ && heading_error < 0.1) {
+  if (position_error < aligning2_current_radius_ && heading_error < 0.1) {
     return true;
   } else {
     return false;
@@ -1372,11 +1366,13 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
         changeState(ABORT_STATE);
       }
 
-      aligning2_current_x_crit_ += (1.0 / _main_rate_) * _aligning2_criterion_increase_rate_x_;
-      aligning2_current_y_crit_ += (1.0 / _main_rate_) * _aligning2_criterion_increase_rate_y_;
+      aligning2_current_radius_ += (1.0 / _main_rate_) * _aligning2_criterion_radius_increase_rate_;
 
-      ROS_INFO_THROTTLE(1.0, "[PreciseLanding]: alignment x crit: %.1f cm, y crit: %.1f cm", aligning2_current_x_crit_ * 100.0,
-                        aligning2_current_y_crit_ * 100.0);
+      if (aligning2_current_radius_ > _aligning2_criterion_radius_limit_) {
+        aligning2_current_radius_ = _aligning2_criterion_radius_limit_;
+      }
+
+      ROS_INFO_THROTTLE(1.0, "[PreciseLanding]: alignment radius criterion: %.1f cm", aligning2_current_radius_ * 100.0);
 
       if (alignment2Check()) {
 

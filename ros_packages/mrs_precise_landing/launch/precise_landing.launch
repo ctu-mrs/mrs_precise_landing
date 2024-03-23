@@ -1,6 +1,7 @@
 <launch>
 
   <arg name="UAV_NAME" default="$(optenv UAV_NAME uav1)"/>
+  <arg name="LOGGER_DEBUG" default="$(optenv LOGGER_DEBUG false)"/>
 
   <arg name="debug" default="false" />
 
@@ -20,6 +21,8 @@
   <arg     if="$(arg debug)" name="launch_prefix" value="debug_roslaunch"/>
   <arg unless="$(arg debug)" name="launch_prefix" value=""/>
 
+  <env name="ROSCONSOLE_CONFIG_FILE" if="$(eval arg('LOGGER_DEBUG'))" value="$(find mrs_precise_landing)/config/debug_verbosity.yaml" />
+
   <include file="$(find mrs_landing_pad_estimation)/launch/landing_pad_estimation.launch">
 
     <arg name="camera_node" default="$(arg camera_node)" />
@@ -38,7 +41,7 @@
 
       <param name="uav_name" type="string" value="$(arg UAV_NAME)"/>
 
-      <!-- Subscribers -->
+        <!-- Subscribers -->
 
       <remap from="~landing_pad_in" to="landing_pad_estimation/pose_estimate" />
       <remap from="~tracker_cmd_in" to="control_manager/tracker_cmd" />
@@ -46,7 +49,7 @@
       <remap from="~mass_nominal_in" to="control_manager/mass_nominal" />
       <remap from="~mass_estimate_in" to="control_manager/mass_estimate" />
 
-      <!-- Service callers -->
+        <!-- Service callers -->
 
       <remap from="~switch_controller_out" to="control_manager/switch_controller" />
       <remap from="~arming_out" to="control_manager/arm" />
@@ -54,12 +57,12 @@
       <remap from="~enable_min_height_check_out" to="uav_manager/enable_min_height_check" />
       <remap from="~path_out" to="trajectory_generation/path" />
 
-      <!-- Advertised services -->
+        <!-- Advertised services -->
 
       <remap from="~land_in" to="~land" />
       <remap from="~abort_in" to="~abort" />
 
-      <!-- Publishers -->
+        <!-- Publishers -->
 
       <remap from="~trajectory_reference_out" to="control_manager/trajectory_reference" />
 

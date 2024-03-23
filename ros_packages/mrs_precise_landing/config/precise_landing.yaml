@@ -27,10 +27,10 @@ stages:
     timeout: 10.0 # [s]
 
     criterion:
-      initial_x: 0.03        # [m], +-
-      initial_y: 0.03        # [m], +-
-      x_increase_rate: 0.01  # [m/s]
-      y_increase_rate: 0.01 # [m/s]
+
+      initial_radius: 0.03       # [m], +-
+      radius_increase_rate: 0.01 # [m/s]
+      limit_radius: 0.1          # [m/s]
 
     in_alignment_duration: 0.5 # [s]
     alignment_criterion: 1     # {0 = control_error, 1 = pad detection}
