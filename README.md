@@ -31,7 +31,12 @@ roscd mrs_precise_landing_gazebo
 
 ## How to use it
 
-You will need:
+The default apriltag is an embedded tag: with tag 0 (0.6 m) on the outside and 10 (0.12 m) on the inside.
+However, this can be easily changed in the config files.
+![](./ros_packages/mrs_precise_landing_gazebo/models/Apriltag_recursive1/materials/textures/atag_rec1.png)
+
+You will need to prepare:
+
 * [config file](./ros_packages/mrs_precise_landing_gazebo/tmux/recursive/config/apriltag.yaml) for the april tag detector
 * camera node name, camera topic name (such that `/$UAV_NAME/camera_node/camera_topic`)
 * the ids of the AprilTags need to be filled in the custom config for the estimator, [estimator_config](./ros_packages/mrs_precise_landing_gazebo/tmux/recursive/config/landing_estimator.yaml)
