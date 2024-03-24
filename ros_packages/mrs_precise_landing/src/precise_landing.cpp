@@ -447,11 +447,19 @@ bool PreciseLanding::callbackLand(std_srvs::Trigger::Request &req, std_srvs::Tri
   {
     std::scoped_lock lock(mutex_state_);
 
-    changeState(ALIGN_STATE);
-  }
+    if (current_state_ == IDLE_STATE) {
 
-  res.success = true;
-  res.message = "landing has started";
+      changeState(ALIGN_STATE);
+
+      res.success = true;
+      res.message = "landing has started";
+
+    } else {
+
+      res.success = false;
+      res.message = "landing already in process";
+    }
+  }
 
   return true;
 }

@@ -31,7 +31,8 @@ roscd mrs_precise_landing_gazebo
 
 ## How to use it
 
-The default [apriltag](./ros_packages/mrs_precise_landing_gazebo/models/Apriltag_recursive1/materials/textures/atag_rec1.png) is an embedded tag (TagCustom48h12): with tag 0 (0.3 m inner size) on the outside and 10 (0.06 m inner size) on the inside.
+The default [apriltag](./ros_packages/mrs_precise_landing_gazebo/models/Apriltag_recursive1/materials/textures/atag_rec1.png) is an embedded tag (TagCustom48h12): with tag 0 (0.3 meter inner size) on the outside and 10 (0.06 meter inner size) on the inside.
+The total outside size of the tag is 0.5 meter.
 However, this can be easily changed in the config files.
 
 You will need to prepare:

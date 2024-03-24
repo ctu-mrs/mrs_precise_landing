@@ -6,8 +6,9 @@ Panels:
       Expanded:
         - /TF1/Frames1
         - /TF1/Tree1
+        - /Camera1/Visibility1
       Splitter Ratio: 0.6970587968826294
-    Tree Height: 361
+    Tree Height: 935
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -27,7 +28,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: detections
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -140,7 +141,7 @@ Visualization Manager:
           Show Visual Aids: false
           Update Topic: control/update
           Value: true
-      Enabled: true
+      Enabled: false
       Name: Status
     - Class: rviz/Group
       Displays:
@@ -299,7 +300,7 @@ Visualization Manager:
               Marker Topic: /uav1/control_manager/trajectory_original/markers
               Name: Markers
               Namespaces:
-                {}
+                "": true
               Queue Size: 100
               Value: true
           Enabled: true
@@ -423,7 +424,7 @@ Visualization Manager:
               Marker Topic: /uav1/control_manager/mpc_tracker/trajectory_processed/markers
               Name: Markers
               Namespaces:
-                {}
+                "": true
               Queue Size: 100
               Value: true
           Enabled: true
@@ -437,7 +438,9 @@ Visualization Manager:
           Marker Topic: /uav1/trajectory_generation/markers/final
           Name: final
           Namespaces:
-            {}
+            markers/final_lines: true
+            markers/final_points: true
+            markers/final_triangles: true
           Queue Size: 100
           Value: true
         - Class: rviz/MarkerArray
@@ -445,7 +448,9 @@ Visualization Manager:
           Marker Topic: /uav1/trajectory_generation/markers/original
           Name: original
           Namespaces:
-            {}
+            markers/original_lines: true
+            markers/original_points: true
+            markers/original_triangles: true
           Queue Size: 100
           Value: true
       Enabled: true
@@ -512,6 +517,72 @@ Visualization Manager:
       Topic: /uav1/landing_pad_estimation/pose_measurement
       Unreliable: false
       Value: true
+    - Class: rviz/Image
+      Enabled: true
+      Image Topic: /uav1/apriltag_detector/tag_detections_image
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: detections
+      Normalize Range: true
+      Queue Size: 2
+      Transport Hint: raw
+      Unreliable: false
+      Value: true
+    - Class: rviz/Camera
+      Enabled: true
+      Image Rendering: background and overlay
+      Image Topic: /uav1/bluefox_optflow/image_raw
+      Name: Camera
+      Overlay Alpha: 0.5
+      Queue Size: 2
+      Transport Hint: raw
+      Unreliable: false
+      Value: true
+      Visibility:
+        ControlManager:
+          Bumper: true
+          Disturbances: true
+          OriginalTrajectory:
+            Markers: true
+            Poses: true
+            Value: true
+          SafetyAreaCoordinates: true
+          SafetyhArea: true
+          Value: false
+          control_reference: true
+        EstimationManager:
+          Value: false
+          odom_main: true
+        Grid: false
+        MpcTracker:
+          MpcInnerReference: true
+          MpcPredictionTrajectory: true
+          PostprocessedTrajectory:
+            Markers: true
+            Poses: true
+            Value: true
+          Value: false
+        Sensors:
+          Value: false
+          ouster_raw: true
+          rplidar: true
+          vio_camera: true
+        Status:
+          Control Display: true
+          Status: true
+          Value: false
+        TF: true
+        TrajectoryGeneration:
+          Value: false
+          final: true
+          original: true
+        UAVModel: false
+        Value: true
+        detections: false
+        landing_pad_estimate: true
+        landing_pad_measurement: true
+      Zoom Factor: 1
   Enabled: true
   Global Options:
     Background Color: 255; 255; 255
@@ -569,27 +640,31 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.389797180891037
+      Pitch: 0.2047971934080124
       Target Frame: uav1/fcu
-      Yaw: 5.22355842590332
+      Yaw: 5.0735578536987305
     Saved: ~
 Window Geometry:
+  Camera:
+    collapsed: false
   Displays:
     collapsed: true
   Height: 506
   Hide Left Dock: true
-  Hide Right Dock: true
-  QMainWindow State: 000000ff00000000fd000000040000000000000191000001a4fc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073000000003b000001a4000000c700fffffffb0000001400760069006f005f00630061006d0065007200610000000122000000bd0000001600fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006501000001400000009f0000000000000000fb0000001400760069006f005f00630061006d00650072006100000001400000009f00000000000000000000000100000116000001a4fc0200000004fb0000001e0054006f006f006c002000500072006f0070006500720074006900650073000000003b000000e40000005c00fffffffb0000000a005600690065007700730000000125000000ba000000a000fffffffb0000001e0054006f006f006c002000500072006f0070006500720074006900650073000000016d0000016e0000000000000000fb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000038f0000003efc0100000002fb0000000800540069006d006500000000000000038f0000035700fffffffb0000000800540069006d00650100000000000004500000000000000000000003a8000001a400000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Hide Right Dock: false
+  QMainWindow State: 000000ff00000000fd0000000400000000000002c2000003e2fc020000000bfb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073000000003b000003e2000000c700fffffffb0000001400760069006f005f00630061006d0065007200610000000122000000bd0000001600fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006501000001400000009f0000000000000000fb0000001400760069006f005f00630061006d00650072006100000001400000009f0000000000000000fb0000000a0049006d006100670065000000015d0000008200000000000000000000000100000164000001a4fc0200000007fb0000001e0054006f006f006c002000500072006f0070006500720074006900650073000000003b0000005c0000005c00fffffffb0000000a00560069006500770073000000003b000000c4000000a000fffffffb0000000c00430061006d006500720061010000003b000000cf0000001600fffffffb000000140064006500740065006300740069006f006e00730100000110000000cf0000001600fffffffb0000000c00430061006d006500720061010000011e000000c10000000000000000fb0000001e0054006f006f006c002000500072006f0070006500720074006900650073000000016d0000016e0000000000000000fb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000003a800000081fc0100000002fb0000000800540069006d006500000000000000038f0000035700fffffffb0000000800540069006d006501000000000000045000000000000000000000023e000001a400000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
     collapsed: false
   Tool Properties:
-    collapsed: true
+    collapsed: false
   Views:
-    collapsed: true
+    collapsed: false
   Width: 936
   X: 966
   Y: 32
+  detections:
+    collapsed: false
   vio_camera:
     collapsed: false

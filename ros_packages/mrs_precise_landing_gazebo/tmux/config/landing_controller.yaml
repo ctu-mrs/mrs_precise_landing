@@ -2,4 +2,4 @@ desired_heading:
 
   relative_to_pad:
     enabled: true
-    heading: 3.1415 # [rad]
+    heading: 0 # [rad]
