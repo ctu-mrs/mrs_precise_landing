@@ -915,8 +915,6 @@ bool PreciseLanding::setMinZ(const double z) {
   srv.request.header.frame_id = _frame_id_;
   srv.request.value           = z;
 
-  ROS_INFO("[PreciseLanding]: setting safety area's min Z");
-
   bool res = sch_set_min_z.call(srv);
 
   if (res) {
