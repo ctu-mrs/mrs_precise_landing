@@ -26,7 +26,7 @@ stages:
 
   aligning2:
 
-    timeout: 10.0 # [s]
+    timeout: 15.0 # [s]
 
     criterion:
 

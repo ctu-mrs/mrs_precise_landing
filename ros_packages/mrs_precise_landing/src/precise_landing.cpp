@@ -1406,7 +1406,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
         double alignemnt_held_for = (ros::Time::now() - aligning2_in_radius_time_).toSec();
 
-        if (alignemnt_held_for >= _aligning2_in_alignment_duration_) {
+        if (alignemnt_held_for > _aligning2_in_alignment_duration_) {
 
           ROS_INFO("[PreciseLanding]: alignment finished, LANDING");
 

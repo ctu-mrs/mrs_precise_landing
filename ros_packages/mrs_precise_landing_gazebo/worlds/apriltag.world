@@ -1,3 +1,5 @@
+<?xml version="1.0" ?>
+<?xml-model href="http://sdformat.org/schemas/root.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <sdf version='1.7'>
 
   <world name='default'>
@@ -14,7 +16,9 @@
     </spherical_coordinates>
     <!--}-->
 
-    <physics name='default_physics' default='0' type='ode'>
+    <!-- physics engine {-->
+    <physics name="default_physics" default="0" type="ode">
+      <gravity>0 0 -9.8066</gravity>
       <ode>
         <solver>
           <type>quick</type>
@@ -32,18 +36,23 @@
       <max_step_size>0.004</max_step_size>
       <real_time_factor>1</real_time_factor>
       <real_time_update_rate>250</real_time_update_rate>
+      <magnetic_field>6.0e-06 2.3e-05 -4.2e-05</magnetic_field>
     </physics>
+    <!--}-->
 
+    <!-- setup shadows {-->
     <scene>
-      <shadows>1</shadows>
-      <ambient>0.4 0.4 0.4 1</ambient>
-      <background>0.7 0.7 0.7 1</background>
+      <shadows>false</shadows>
+      <!-- <sky> -->
+      <!--   <clouds/> -->
+      <!-- </sky> -->
     </scene>
+    <!--}-->
 
-    <!-- light {-->
+    <!-- sun {-->
 
     <light name='sun' type='directional'>
-      <pose>0 0 1000 0.4 0.2 0</pose>
+      <pose frame=''>0 0 1000 0.4 0.2 0</pose>
       <diffuse>1 1 1 1</diffuse>
       <specular>0.6 0.6 0.6 1</specular>
       <direction>0.1 0.1 -0.9</direction>
@@ -54,49 +63,9 @@
         <quadratic>0.001</quadratic>
       </attenuation>
       <cast_shadows>1</cast_shadows>
-      <spot>
-        <inner_angle>0</inner_angle>
-        <outer_angle>0</outer_angle>
-        <falloff>0</falloff>
-      </spot>
     </light>
 
     <!--}-->
-
-    <!-- gui {-->
-
-    <gui fullscreen='0'>
-      <camera name='camera'>
-        <pose>-6.06072 -2.40886 4.63304 0 0.244 -0.157996</pose>
-        <view_controller>orbit</view_controller>
-        <projection_type>perspective</projection_type>
-      </camera>
-    </gui>
-
-    <!--}-->
-
-    <!-- cam synchronizer plugin {-->
-
-    <plugin name='mrs_gazebo_rviz_cam_synchronizer' filename='libMrsGazeboCommonResources_RvizCameraSynchronizer.so'>
-      <target_frame_id>gazebo_user_camera</target_frame_id>
-      <world_origin_frame_id>uav1/gps_origin</world_origin_frame_id>
-      <frame_to_follow>uav1</frame_to_follow>
-    </plugin>
-
-    <!--}-->
-
-    <gravity>0 0 -9.8066</gravity>
-
-    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
-
-    <atmosphere type='adiabatic'/>
-
-    <wind/>
-
-    <include>
-      <uri>model://Apriltag_recursive1</uri>
-      <pose>1 1 1 0 0 1.2</pose>
-    </include>
 
     <!-- ground plane {-->
 
@@ -143,6 +112,27 @@
       </link>
     </model>
 
+    <!--}-->
+
+    <include>
+      <uri>model://Apriltag_recursive1</uri>
+      <pose>1 1 1 0 0 1.2</pose>
+    </include>
+
+    <!-- user camera {-->
+    <gui>
+      <camera name="camera">
+        <pose>-60 -100 30 0 0.4 0.89</pose>
+      </camera>
+    </gui>
+    <!--}-->
+
+    <!-- GUI frame synchronization {-->
+    <plugin name="mrs_gazebo_rviz_cam_synchronizer" filename="libMrsGazeboCommonResources_RvizCameraSynchronizer.so" >
+      <target_frame_id>gazebo_user_camera</target_frame_id>
+      <world_origin_frame_id>uav1/gps_origin</world_origin_frame_id>
+      <frame_to_follow>uav1</frame_to_follow>
+    </plugin>
     <!--}-->
 
   </world>

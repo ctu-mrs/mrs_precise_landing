@@ -6,6 +6,7 @@ mrs_uav_managers:
     state_estimators: [
       "gps_baro",
       "gps_garmin",
+      "ground_truth",
     ]
 
     initial_state_estimator: "gps_garmin" # will be used as the first state estimator
@@ -16,10 +17,11 @@ mrs_uav_managers:
     takeoff:
 
       during_takeoff:
-        controller: "MpcController"
+        controller: "Se3Controller"
         tracker: "LandoffTracker"
 
       after_takeoff:
-        controller: "MpcController" # more robust
-        # controller: "Se3Controller" # more precise
+        controller: "Se3Controller" # more precise
         tracker: "MpcTracker"
+
+      takeoff_height: 3.0
