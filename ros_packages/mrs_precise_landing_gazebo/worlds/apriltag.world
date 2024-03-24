@@ -116,7 +116,7 @@
 
     <include>
       <uri>model://Apriltag_recursive1</uri>
-      <pose>1 1 1 0 0 1.2</pose>
+      <pose>1 1 1 0.10 0.10 1.2</pose>
     </include>
 
     <!-- user camera {-->

@@ -190,7 +190,7 @@ private:
 
   void gotoPath(const double x, const double y, const double z, const double hdg, const std::string &frame);
 
-  bool alignmentCheck(const double &desired_height, const double &position_thr, const double &heading_thr);
+  bool alignmentCheck(const double &desired_height, const double &position_hor_thr, const double &position_vert_thr, const double &heading_thr);
 
   bool shouldTimeout(const double &timeout);
 
@@ -442,6 +442,14 @@ bool PreciseLanding::callbackLand(std_srvs::Trigger::Request &req, std_srvs::Tri
       res.success = false;
       return true;
     }
+
+    if (!sh_ctrl_diag_.getMsg()->flying_normally) {
+      ss << "not flying normally";
+      ROS_ERROR_STREAM_THROTTLE(1.0, "[PreciseLanding]: " << ss.str());
+      res.message = ss.str();
+      res.success = false;
+      return true;
+    }
   }
 
   {
@@ -627,7 +635,7 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
 
     desired_height  = landing_pad_z + _descending_height_;
     desired_vector  = desired_height - init_z;
-    target_distance = fabs(desired_vector);
+    target_distance = std::abs(desired_vector);
     direction       = (desired_vector <= 0) ? -1 : 1;
 
     if (_heading_relative_to_pad_enabled_) {
@@ -691,7 +699,7 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
 
     desired_height  = landing_pad_z + ascending_height_;
     desired_vector  = desired_height - init_z;
-    target_distance = fabs(desired_vector);
+    target_distance = std::abs(desired_vector);
     direction       = (desired_vector <= 0) ? -1 : 1;
 
     double step_size = _ascending_speed_ * _trajectory_dt_;
@@ -796,7 +804,7 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
 
     desired_height  = landing_pad_z + _repeating_height_;
     desired_vector  = desired_height - init_z;
-    target_distance = fabs(desired_vector);
+    target_distance = std::abs(desired_vector);
     direction       = (desired_vector <= 0) ? -1 : 1;
 
     if (_heading_relative_to_pad_enabled_) {
@@ -1158,7 +1166,7 @@ std::optional<mrs_msgs::ReferenceStamped> PreciseLanding::getTransformedUavState
 
 /* alignmentCheck() //{ */
 
-bool PreciseLanding::alignmentCheck(const double &desired_height, const double &position_thr, const double &heading_thr) {
+bool PreciseLanding::alignmentCheck(const double &desired_height, const double &position_hor_thr, const double &position_vert_thr, const double &heading_thr) {
 
   auto uav_state   = getTransformedUavState(_frame_id_);
   auto landing_pad = getTransformedLandingPad(_frame_id_);
@@ -1185,11 +1193,11 @@ bool PreciseLanding::alignmentCheck(const double &desired_height, const double &
     tar_heading = cur_heading;
   }
 
-  double position_error = std::hypot(cur_x - tar_x, cur_y - tar_y, cur_z - tar_z);
+  double horizontal_error = std::hypot(cur_x - tar_x, cur_y - tar_y);
+  double vertical_error   = std::abs(cur_z - tar_z);
+  double heading_error    = std::abs(radians::diff(cur_heading, tar_heading));
 
-  double heading_error = fabs(radians::diff(cur_heading, tar_heading));
-
-  if (position_error < position_thr && heading_error < heading_thr) {
+  if (horizontal_error < position_hor_thr && vertical_error < position_vert_thr && heading_error < heading_thr) {
     return true;
   } else {
     return false;
@@ -1281,7 +1289,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
       gotoPath(des_x, des_y, des_z, des_heading, _frame_id_);
 
-      if (alignmentCheck(_aligning_height_, _aligning_radius_, 0.1)) {
+      if (alignmentCheck(_aligning_height_, _aligning_radius_, 0.2, 0.1)) {
 
         ROS_INFO_THROTTLE(1, "[PreciseLanding]: aligned with the landing pad, DESCENDING");
 
@@ -1328,7 +1336,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
         return;
       }
 
-      if (alignmentCheck(_descending_height_, 0.1, 0.1)) {
+      if (alignmentCheck(_descending_height_, 0.1, 0.2, 0.1)) {
 
         ROS_INFO("[PreciseLanding]: correct height reached, ALIGNING for landing");
 
@@ -1376,7 +1384,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
       ROS_INFO_THROTTLE(1.0, "[PreciseLanding]: alignment radius criterion: %.1f cm", aligning2_current_radius_ * 100.0);
 
-      if (alignmentCheck(_descending_height_, aligning2_current_radius_, 0.1)) {
+      if (alignmentCheck(_descending_height_, aligning2_current_radius_, 0.1, 0.1)) {
 
         if (!aligning2_in_radius_) {
 
@@ -1472,7 +1480,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
       }
 
       // | -------------------- check the height -------------------- |
-      if (alignmentCheck(_repeating_height_, 0.3, 0.1)) {
+      if (alignmentCheck(_repeating_height_, 0.2, 0.2, 0.1)) {
 
         changeState(ALIGN_STATE);
 
