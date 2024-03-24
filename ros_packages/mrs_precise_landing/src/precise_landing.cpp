@@ -65,7 +65,6 @@ const char *state_names[7] = {
 [[maybe_unused]] enum {
 
   DESCEND_TRAJECTORY,
-  ASCEND_TRAJECTORY,
   LANDING_TRAJECTORY,
   REPEAT_TRAJECTORY,
   ABORT_TRAJECTORY,
@@ -166,11 +165,7 @@ private:
   // repeating params
   double _repeating_speed_;
   double _repeating_height_;
-
-  // ascending params
-  double     _ascending_speed_;
-  double     ascending_height_;
-  std::mutex mutex_ascending_height_;
+  double _repeating_timeout_;
 
   // aborting params
   double aborting_height_;
@@ -271,10 +266,7 @@ void PreciseLanding::onInit() {
   // repeating params
   param_loader.loadParam("stages/repeating/speed", _repeating_speed_);
   param_loader.loadParam("stages/repeating/height", _repeating_height_);
-
-  // ascending params
-  param_loader.loadParam("stages/ascending/speed", _ascending_speed_);
-  param_loader.loadParam("stages/ascending/height", ascending_height_);
+  param_loader.loadParam("stages/repeating/timeout", _repeating_timeout_);
 
   // aborting params
   param_loader.loadParam("stages/aborting/height", aborting_height_);
@@ -685,51 +677,6 @@ std::optional<mrs_msgs::TrajectoryReference> PreciseLanding::createTrajectory(in
       point.heading    = desired_heading;
 
       trajectory.points.push_back(point);
-    }
-
-    return trajectory;
-
-    //}
-
-    /* ASCEND_TRAJECTORY //{ */
-
-  } else if (trajectoryType == ASCEND_TRAJECTORY) {
-
-    double desired_height, desired_vector, target_distance, direction;
-
-    desired_height  = landing_pad_z + ascending_height_;
-    desired_vector  = desired_height - init_z;
-    target_distance = std::abs(desired_vector);
-    direction       = (desired_vector <= 0) ? -1 : 1;
-
-    double step_size = _ascending_speed_ * _trajectory_dt_;
-    int    n_steps   = int(floor(target_distance / step_size));
-
-    // the first point
-    {
-      mrs_msgs::Reference point;
-
-      point.position.x = init_x;
-      point.position.y = init_y;
-      point.position.z = init_z;
-      point.heading    = init_hdg;
-
-      trajectory.points.push_back(point);
-    }
-
-    // sample the trajectory
-    {
-      mrs_msgs::Reference point;
-
-      for (int i = 0; i < n_steps; i++) {
-
-        point.position.x = init_x;
-        point.position.y = init_y;
-        point.position.z = trajectory.points.back().position.z + direction * step_size;
-        point.heading    = init_hdg;
-
-        trajectory.points.push_back(point);
-      }
     }
 
     return trajectory;
@@ -1468,6 +1415,15 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
       /* REPEAT_STATE //{ */
 
     case REPEAT_STATE: {
+
+      if (shouldTimeout(_repeating_timeout_)) {
+
+        ROS_ERROR("[PreciseLanding]: repeating timed out, ABORTING");
+
+        changeState(ABORT_STATE);
+
+        return;
+      }
 
       auto trajectory = createTrajectory(REPEAT_TRAJECTORY);
 

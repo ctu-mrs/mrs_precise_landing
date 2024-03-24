@@ -39,18 +39,15 @@ stages:
   landing:
     speed: 0.25          # [m/s]
     height: -1.0         # [m], this is relative to the tracker_cmdk
-    repeat_threshold: 3  # [-]
+    repeat_threshold: 2  # [-]
 
   repeating:
-    height: 2.0 # [m]
+    height: 3.0 # [m]
     speed: 1.5 # [m/s]
-
-  ascending:
-    speed: 0.5 # [m/s]
-    height: 2.0 # [m]
+    timeout: 10.0 # [m]
 
   aborting:
-    height: 4.0 # [m]
+    height: 3.0 # [m]
 
 # rate of publishing the trajectory
 rate: 10.0 # [Hz]
