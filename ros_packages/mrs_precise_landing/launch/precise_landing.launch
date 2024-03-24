@@ -46,12 +46,13 @@
       <remap from="~landing_pad_in" to="landing_pad_estimation/pose_estimate" />
       <remap from="~tracker_cmd_in" to="control_manager/tracker_cmd" />
       <remap from="~uav_state_in" to="estimation_manager/uav_state" />
-      <remap from="~mass_nominal_in" to="control_manager/mass_nominal" />
       <remap from="~mass_estimate_in" to="control_manager/mass_estimate" />
+      <remap from="~ctrl_diag_in" to="control_manager/diagnostics" />
 
         <!-- Service callers -->
 
       <remap from="~switch_controller_out" to="control_manager/switch_controller" />
+      <remap from="~switch_tracker_out" to="control_manager/switch_tracker" />
       <remap from="~arming_out" to="control_manager/arm" />
       <remap from="~enable_safety_area_out" to="control_manager/use_safety_area" />
       <remap from="~enable_min_height_check_out" to="uav_manager/enable_min_height_check" />

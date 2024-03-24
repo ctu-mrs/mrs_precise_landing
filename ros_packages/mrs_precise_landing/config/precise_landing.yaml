@@ -1,5 +1,7 @@
 controller: "Se3Controller"
 
+tracker: "MpcTracker"
+
 # the frame id in which all the operations are conducted
 frame_id: "fixed_origin"
 
