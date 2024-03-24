@@ -1230,7 +1230,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
       double des_z = landing_pad->reference.position.z + _aligning_height_;
       double des_heading;
 
-      if (!setMinZ(landing_pad->reference.position.z + _landing_height_)) {
+      if (!setMinZ(landing_pad->reference.position.z + 1.5 * _landing_height_)) {
         ROS_ERROR("[PreciseLanding]: failed to set safety area's min Z");
         changeState(ABORT_STATE);
         return;
@@ -1282,7 +1282,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
       auto landing_pad = getTransformedLandingPad(_frame_id_);
 
-      if (!setMinZ(landing_pad->reference.position.z + _landing_height_)) {
+      if (!setMinZ(landing_pad->reference.position.z + 1.5 * _landing_height_)) {
         ROS_ERROR("[PreciseLanding]: failed to set safety area's min Z");
         changeState(ABORT_STATE);
         return;
@@ -1337,7 +1337,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
       auto landing_pad = getTransformedLandingPad(_frame_id_);
 
-      if (!setMinZ(landing_pad->reference.position.z + _landing_height_)) {
+      if (!setMinZ(landing_pad->reference.position.z + 1.5 * _landing_height_)) {
         ROS_ERROR("[PreciseLanding]: failed to set safety area's min Z");
         changeState(ABORT_STATE);
         return;
@@ -1410,7 +1410,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
       auto landing_pad = getTransformedLandingPad(_frame_id_);
 
-      if (!setMinZ(landing_pad->reference.position.z + _landing_height_)) {
+      if (!setMinZ(landing_pad->reference.position.z + 1.5 * _landing_height_)) {
         ROS_ERROR("[PreciseLanding]: failed to set safety area's min Z");
         changeState(ABORT_STATE);
         return;
