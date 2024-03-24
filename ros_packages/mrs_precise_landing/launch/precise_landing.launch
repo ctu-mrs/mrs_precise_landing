@@ -54,7 +54,7 @@
       <remap from="~switch_controller_out" to="control_manager/switch_controller" />
       <remap from="~switch_tracker_out" to="control_manager/switch_tracker" />
       <remap from="~arming_out" to="control_manager/arm" />
-      <remap from="~enable_safety_area_out" to="control_manager/use_safety_area" />
+      <remap from="~set_min_z_out" to="control_manager/set_min_z" />
       <remap from="~enable_min_height_check_out" to="uav_manager/enable_min_height_check" />
       <remap from="~path_out" to="trajectory_generation/path" />
 

@@ -26,6 +26,7 @@
 #include <mrs_msgs/String.h>
 #include <mrs_msgs/PathSrv.h>
 #include <mrs_msgs/ControlManagerDiagnostics.h>
+#include <mrs_msgs/Float64StampedSrv.h>
 
 //}
 
@@ -109,12 +110,12 @@ private:
   ros::ServiceServer service_server_land_;
   ros::ServiceServer service_servcer_stop_;
 
-  mrs_lib::ServiceClientHandler<mrs_msgs::String>  sch_switch_controller_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::String>  sch_switch_tracker_;
-  mrs_lib::ServiceClientHandler<std_srvs::SetBool> sch_arming_;
-  mrs_lib::ServiceClientHandler<std_srvs::SetBool> sch_enable_safety_area_;
-  mrs_lib::ServiceClientHandler<std_srvs::SetBool> sch_enable_min_height_check_;
-  mrs_lib::ServiceClientHandler<mrs_msgs::PathSrv> sch_path_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>            sch_switch_controller_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::String>            sch_switch_tracker_;
+  mrs_lib::ServiceClientHandler<std_srvs::SetBool>           sch_arming_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::Float64StampedSrv> sch_set_min_z;
+  mrs_lib::ServiceClientHandler<std_srvs::SetBool>           sch_enable_min_height_check_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::PathSrv>           sch_path_;
 
   // params loaded from config file
   double _trajectory_dt_;
@@ -179,7 +180,7 @@ private:
 
   void disarm(void);
 
-  bool enableSafetyArea(const bool state);
+  bool setMinZ(const double state);
 
   bool enableMinHeightCheck(const bool state);
 
@@ -289,7 +290,7 @@ void PreciseLanding::onInit() {
   sch_switch_controller_       = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "switch_controller_out");
   sch_switch_tracker_          = mrs_lib::ServiceClientHandler<mrs_msgs::String>(nh_, "switch_tracker_out");
   sch_arming_                  = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "arming_out");
-  sch_enable_safety_area_      = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "enable_safety_area_out");
+  sch_set_min_z                = mrs_lib::ServiceClientHandler<mrs_msgs::Float64StampedSrv>(nh_, "set_min_z_out");
   sch_enable_min_height_check_ = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "enable_min_height_check_out");
   sch_path_                    = mrs_lib::ServiceClientHandler<mrs_msgs::PathSrv>(nh_, "path_out");
 
@@ -508,12 +509,6 @@ void PreciseLanding::changeState(int newState) {
 
       if (!setTracker(tracker_)) {
         ROS_ERROR("[PreciseLanding]: failed to switch tracker");
-        changeState(IDLE_STATE);
-        return;
-      }
-
-      if (!enableSafetyArea(false)) {
-        ROS_ERROR("[PreciseLanding]: failed to disable the safety area");
         changeState(IDLE_STATE);
         return;
       }
@@ -912,24 +907,25 @@ void PreciseLanding::disarm(void) {
 
 //}
 
-/* enableSafetyArea() //{ */
+/* setMinZ() //{ */
 
-bool PreciseLanding::enableSafetyArea(const bool state) {
+bool PreciseLanding::setMinZ(const double z) {
 
-  std_srvs::SetBool srv;
-  srv.request.data = state;
+  mrs_msgs::Float64StampedSrv srv;
+  srv.request.header.frame_id = _frame_id_;
+  srv.request.value           = z;
 
-  ROS_INFO("[PreciseLanding]: %s safety area", state ? "enabling" : "disabling");
+  ROS_INFO("[PreciseLanding]: setting safety area's min Z");
 
-  bool res = sch_enable_safety_area_.call(srv);
+  bool res = sch_set_min_z.call(srv);
 
   if (res) {
     if (!srv.response.success) {
-      ROS_WARN_THROTTLE(1.0, "[PreciseLanding]: service call for enableSafetyArea() returned false: %s", srv.response.message.c_str());
+      ROS_WARN_THROTTLE(1.0, "[PreciseLanding]: service call for setMinZ() returned false: %s", srv.response.message.c_str());
       return false;
     }
   } else {
-    ROS_ERROR("[PreciseLanding]: service call for enableSafetyArea() failed!");
+    ROS_ERROR("[PreciseLanding]: service call for setMinZ() failed!");
     return false;
   }
 
@@ -1236,6 +1232,12 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
       double des_z = landing_pad->reference.position.z + _aligning_height_;
       double des_heading;
 
+      if (!setMinZ(landing_pad->reference.position.z + _landing_height_)) {
+        ROS_ERROR("[PreciseLanding]: failed to set safety area's min Z");
+        changeState(ABORT_STATE);
+        return;
+      }
+
       if (_heading_relative_to_pad_enabled_) {
         des_heading = landing_pad->reference.heading + _heading_relative_to_pad_;
       } else {
@@ -1277,6 +1279,14 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
         changeState(ABORT_STATE);
 
+        return;
+      }
+
+      auto landing_pad = getTransformedLandingPad(_frame_id_);
+
+      if (!setMinZ(landing_pad->reference.position.z + _landing_height_)) {
+        ROS_ERROR("[PreciseLanding]: failed to set safety area's min Z");
+        changeState(ABORT_STATE);
         return;
       }
 
@@ -1324,6 +1334,14 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
         changeState(ABORT_STATE);
 
+        return;
+      }
+
+      auto landing_pad = getTransformedLandingPad(_frame_id_);
+
+      if (!setMinZ(landing_pad->reference.position.z + _landing_height_)) {
+        ROS_ERROR("[PreciseLanding]: failed to set safety area's min Z");
+        changeState(ABORT_STATE);
         return;
       }
 
@@ -1391,6 +1409,14 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
       /* LANDING_STATE //{ */
 
     case LANDING_STATE: {
+
+      auto landing_pad = getTransformedLandingPad(_frame_id_);
+
+      if (!setMinZ(landing_pad->reference.position.z + _landing_height_)) {
+        ROS_ERROR("[PreciseLanding]: failed to set safety area's min Z");
+        changeState(ABORT_STATE);
+        return;
+      }
 
       auto trajectory = createTrajectory(LANDING_TRAJECTORY);
 

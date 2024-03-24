@@ -19,10 +19,10 @@ safety_area:
     # x, y [m] for any frame_name except latlon_origin
     # x = latitude, y = longitude [deg]  for frame_name=="latlon_origin"
     points: [
-      -50, -50,
-      50,  -50,
-      50,  50,
-      -50, 50,
+      -10, -10,
+      10,  -10,
+      10,  10,
+      -10, 10,
     ]
 
   vertical:
@@ -31,4 +31,4 @@ safety_area:
     frame_name: "world_origin"
 
     max_z: 15.0
-    min_z: 0.5
+    min_z: 1.0
