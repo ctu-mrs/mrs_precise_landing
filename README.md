@@ -2,6 +2,8 @@
 
 Autonomous precise landing on an AprilTag.
 
+![](./.fig/precise_landing.jpg)
+
 ## Installation
 
 For deployment:
