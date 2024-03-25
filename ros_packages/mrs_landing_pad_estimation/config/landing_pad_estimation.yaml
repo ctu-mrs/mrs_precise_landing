@@ -1,16 +1,23 @@
-prediction_rate: 100.0 # [Hz]
-
 # order by their embeddedness
 # the first one is the smallest and the most embedded one
 tag_ids: [0, 10] # [-]
 
+# the estimation will happen in this frame of refernece
+# (detections are transformed to this frame first)
 estimation_frame: "fixed_origin"
 
+# internal loop rate of the LKF
+prediction_rate: 100.0 # [Hz]
+
+# the node will stop fusing and outputing any data of detections are not coming for more than this
 correction_timeout: 2.0 # [s]
 
 # max relative distance to the landing tag
+# anything detection beyond this distance (in the fcu frame) will be thrown away
 max_relative_distance: 8.0
 
+# parameters for the LKF estimator
+# don't change
 lkf:
 
   # state matrix

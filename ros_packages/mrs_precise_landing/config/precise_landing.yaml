@@ -1,8 +1,11 @@
+# what controller will be used for the landing
 controller: "Se3Controller"
 
+# what tracker will be used for the landing
 tracker: "MpcTracker"
 
-# the frame id in which all the operations are conducted
+# the frame in which all the operations are conducted
+# (all the incoming data is transformed to this frame first)
 frame_id: "fixed_origin"
 
 desired_heading:
@@ -28,6 +31,7 @@ stages:
 
     timeout: 15.0 # [s]
 
+    # the alignment criterion is relaxed as the time goes
     criterion:
 
       initial_radius: 0.03         # [m], +-
@@ -49,8 +53,8 @@ stages:
   aborting:
     height: 3.0 # [m]
 
-# rate of publishing the trajectory
+# rate of the feedback loop
 rate: 10.0 # [Hz]
 
-# sampling of the trajectory
+# sampling rate of the outcoming trajectory
 trajectory_dt: 0.20 # [s]
