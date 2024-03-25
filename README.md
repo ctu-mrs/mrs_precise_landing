@@ -39,13 +39,14 @@ However, this can be easily changed in the config files.
 
 You will need to prepare:
 
-* [config file](./ros_packages/mrs_precise_landing_gazebo/tmux/config/apriltag.yaml) for the april tag detector
+* config file for the april tag detector, e.g., [apriltag.yaml](./ros_packages/mrs_precise_landing_gazebo/tmux/config/apriltag.yaml)
 * camera node name, camera topic name (such that `/$UAV_NAME/camera_node/camera_topic`)
-* the ids of the AprilTags need to be filled in the custom config for the estimator, [estimator_config](./ros_packages/mrs_precise_landing_gazebo/tmux/config/landing_estimator.yaml)
-* how should the heading be controlled?, prepare the controller config, [controller_config](./ros_packages/mrs_precise_landing_gazebo/tmux/config/landing_controller.yaml)
+* the ids of the AprilTags need to be filled in the custom config for the estimator, e.g., [landing_estimator.yaml](./ros_packages/mrs_precise_landing_gazebo/tmux/config/landing_estimator.yaml)
+* how should the heading be controlled?, prepare the controller config, e.g., [landing_controller.yaml](./ros_packages/mrs_precise_landing_gazebo/tmux/config/landing_controller.yaml)
 
+An example of how to start the nodes using the custom configs:
 ```bash
-roslaunch mrs_precise_landing precise_landing.launch apriltag_config:=`rospack find mrs_landing_pad_estimation`/config/apriltag_recursive.yaml camera_node:=bluefox_optflow image_topic:=image_raw estimator_config:=<estimator_config> controller_config:=<controller_config>
+roslaunch mrs_precise_landing precise_landing.launch apriltag_config:=`rospack find mrs_landing_pad_estimation`/config/apriltag_recursive.yaml camera_node:=bluefox_optflow image_topic:=image_raw estimator_config:=<landing_estimator> controller_config:=<landing_controller>
 ```
 
 When the AprilTag is in the view, call:
