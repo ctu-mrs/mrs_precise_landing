@@ -37,7 +37,7 @@ windows:
   - precise_landing:
       layout: tiled
       panes:
-        - waitForTime; roslaunch mrs_precise_landing precise_landing.launch apriltag_config:=`rospack find mrs_landing_pad_estimation`/config/apriltag_recursive.yaml camera_node:=bluefox_optflow image_topic:=image_raw estimator_config:=./config/landing_estimator.yaml controller_config:=./config/landing_controller.yaml
+        - waitForTime; roslaunch mrs_precise_landing precise_landing.launch apriltag_config:=./config/apriltag.yaml camera_node:=bluefox_optflow image_topic:=image_raw estimator_config:=./config/landing_estimator.yaml controller_config:=./config/landing_controller.yaml
         - waitForControl; rostopic echo /$UAV_NAME/ground_truth/pose/pose/position
   - land:
       layout: tiled
