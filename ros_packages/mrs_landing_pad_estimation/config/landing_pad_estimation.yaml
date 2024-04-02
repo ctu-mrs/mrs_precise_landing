@@ -5,6 +5,9 @@ tag_ids: [0, 10] # [-]
 # (detections are transformed to this frame first)
 estimation_frame: "fixed_origin"
 
+# the UAV's body frame
+body_frame: "fcu"
+
 # internal loop rate of the LKF
 prediction_rate: 100.0 # [Hz]
 
@@ -14,6 +17,12 @@ correction_timeout: 2.0 # [s]
 # max relative distance to the landing tag
 # anything detection beyond this distance (in the fcu frame) will be thrown away
 max_relative_distance: 8.0
+
+# settings for the mrs_lib::Transformer
+transformer:
+
+  # should unprefixed frame_id be automatically prefixed with the UAV_NAME?
+  autoprefix_uav_name: false
 
 # parameters for the LKF estimator
 # don't change

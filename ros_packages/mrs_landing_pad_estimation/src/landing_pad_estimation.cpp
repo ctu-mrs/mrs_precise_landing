@@ -86,8 +86,12 @@ private:
   std::string      _uav_name_;
   std::vector<int> _tag_ids_;
   std::string      _estimation_frame_;
+  std::string      _full_estimation_frame_;
+  std::string      _body_frame_;
+  std::string      _full_body_frame_;
   double           _correction_timeout_;
   double           max_relative_distance_;
+  bool             _autoprefix_uav_name_;
 
   mrs_lib::Transformer transformer_;
 
@@ -133,13 +137,18 @@ void LandingPadEstimation::onInit() {
   param_loader.loadParam("uav_name", _uav_name_);
   param_loader.loadParam("tag_ids", _tag_ids_);
   param_loader.loadParam("estimation_frame", _estimation_frame_);
+  param_loader.loadParam("body_frame", _body_frame_);
   param_loader.loadParam("correction_timeout", _correction_timeout_);
   param_loader.loadParam("max_relative_distance", max_relative_distance_);
+  param_loader.loadParam("transformer/autoprefix_uav_name", _autoprefix_uav_name_);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[LandingPadEstimation]: Could not load all parameters!");
     ros::shutdown();
   }
+
+  _full_estimation_frame_ = _uav_name_ + "/" + _estimation_frame_;
+  _full_body_frame_       = _uav_name_ + "/" + _body_frame_;
 
   // state matrix
   param_loader.loadMatrixStatic("lkf/A", A_);
@@ -182,7 +191,11 @@ void LandingPadEstimation::onInit() {
   // | ----------------------- transfomer ----------------------- |
 
   transformer_ = mrs_lib::Transformer("LandingPadEstimation");
-  transformer_.setDefaultPrefix(_uav_name_);
+
+  if (_autoprefix_uav_name_) {
+    transformer_.setDefaultPrefix(_uav_name_);
+  }
+
   transformer_.retryLookupNewest(true);
 
   // | --------------------------- lkf -------------------------- |
@@ -237,10 +250,10 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
   // | ------------------- check for outliers ------------------- |
 
   {
-    auto result = transformer_.transformSingle(tag_pose.value(), "fcu");
+    auto result = transformer_.transformSingle(tag_pose.value(), _full_body_frame_);
 
     if (!result) {
-      ROS_ERROR("[LandingPadEstimation]: could not transform the tag detection to 'fcu'");
+      ROS_ERROR("[LandingPadEstimation]: could not transform the tag detection to '%s'", _full_body_frame_.c_str());
       return;
     }
 
@@ -252,10 +265,10 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
 
   // | ------------------- transform the pose ------------------- |
 
-  auto result = transformer_.transformSingle(tag_pose.value(), _estimation_frame_);
+  auto result = transformer_.transformSingle(tag_pose.value(), _full_estimation_frame_);
 
   if (!result) {
-    ROS_ERROR("[LandingPadEstimation]: could not transform the tag detection to '%s'", _estimation_frame_.c_str());
+    ROS_ERROR("[LandingPadEstimation]: could not transform the tag detection to '%s'", _full_estimation_frame_.c_str());
     return;
   }
 
