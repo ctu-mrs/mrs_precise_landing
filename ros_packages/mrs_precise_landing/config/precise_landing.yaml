@@ -41,7 +41,7 @@ stages:
     in_alignment_duration: 0.5 # [s]
 
   landing:
-    speed: 0.25          # [m/s]
+    speed: 0.5          # [m/s]
     height: -1.0         # [m], this is relative to the tracker_cmdk
     repeat_threshold: 2  # [-]
 

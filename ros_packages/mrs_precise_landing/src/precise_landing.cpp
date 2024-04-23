@@ -389,7 +389,7 @@ bool PreciseLanding::callbackAbort([[maybe_unused]] std_srvs::Trigger::Request &
 
 //}
 
-/* callbackStart() //{ */
+/* callbackLand() //{ */
 
 bool PreciseLanding::callbackLand(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
@@ -438,6 +438,14 @@ bool PreciseLanding::callbackLand(std_srvs::Trigger::Request &req, std_srvs::Tri
 
     if (!sh_ctrl_diag_.getMsg()->flying_normally) {
       ss << "not flying normally";
+      ROS_ERROR_STREAM_THROTTLE(1.0, "[PreciseLanding]: " << ss.str());
+      res.message = ss.str();
+      res.success = false;
+      return true;
+    }
+
+    if (!see_landing_pad_) {
+      ss << "landing pad not detected";
       ROS_ERROR_STREAM_THROTTLE(1.0, "[PreciseLanding]: " << ss.str());
       res.message = ss.str();
       res.success = false;
