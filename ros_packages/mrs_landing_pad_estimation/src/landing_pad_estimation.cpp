@@ -257,7 +257,7 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
       return;
     }
 
-    if (std::hypot(tag_pose->pose.pose.position.x, tag_pose->pose.pose.position.y, tag_pose->pose.pose.position.z) > max_relative_distance_) {
+    if (std::hypot(result->pose.pose.position.x, result->pose.pose.position.y, result->pose.pose.position.z) > max_relative_distance_) {
       ROS_WARN_THROTTLE(1.0, "[LandingPadEstimation]: detection too far from the UAV");
       return;
     }
