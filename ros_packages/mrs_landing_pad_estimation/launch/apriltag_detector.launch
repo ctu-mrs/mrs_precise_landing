@@ -25,7 +25,7 @@
       <remap from="tag_detections" to="~/tag_detections" />
       <remap from="tag_detections_image" to="~/tag_detections_image" />
 
-      <param name="publish_tag_detections_image" type="bool" value="true" /><!-- default: false -->
+      <param name="publish_tag_detections_image" type="bool" value="false" /><!-- default: false -->
       <param name="queue_size" type="int" value="$(arg queue_size)" />
 
     </node>

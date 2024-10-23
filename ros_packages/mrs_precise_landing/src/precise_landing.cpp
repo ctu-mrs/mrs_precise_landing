@@ -161,6 +161,7 @@ private:
 
   double _landing_speed_;
   double _landing_height_;
+  double _landing_mass_factor_;
   int    _landing_repeat_threshold_;
 
   // repeating params
@@ -262,6 +263,7 @@ void PreciseLanding::onInit() {
   // landing params
   param_loader.loadParam("stages/landing/speed", _landing_speed_);
   param_loader.loadParam("stages/landing/height", _landing_height_);
+  param_loader.loadParam("stages/landing/mass_factor", _landing_mass_factor_);
   param_loader.loadParam("stages/landing/repeat_threshold", _landing_repeat_threshold_);
 
   // repeating params
@@ -1436,7 +1438,7 @@ void PreciseLanding::stateMachineTimer([[maybe_unused]] const ros::TimerEvent &e
 
       auto estimated_mass = sh_mass_estimate_.getMsg();
 
-      if (estimated_mass->data < (0.5 * inital_mass_estimate_)) {
+      if (estimated_mass->data < (_landing_mass_factor_ * inital_mass_estimate_)) {
 
         ROS_INFO("[PreciseLanding]: landing finished");
 
