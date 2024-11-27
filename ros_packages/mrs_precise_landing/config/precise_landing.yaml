@@ -44,7 +44,13 @@ stages:
     speed: 0.5          # [m/s]
     height: -1.0        # [m], this is relative to the tracker_cmdk
     repeat_threshold: 2 # [-]
-    mass_factor: 0.75   # [-] mass factor for landing detection
+
+    disarming:
+      mass_factor: 0.75   # [-] mass factor for landing detection
+
+      vision:
+        enabled: false
+        distance: 0.1 # [m]
 
   repeating:
     height: 1.5 # [m]
