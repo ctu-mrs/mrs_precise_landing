@@ -1,6 +1,20 @@
 # the list of tag ids order according to their priority (highest-to-lowest)
 tag_ids: [0, 10] # [-]
 
+# relative transformation in the tag frame
+relative_transform:
+
+  translation:
+    x: -0.2 # [m]
+    y: 0.0  # [m]
+    z: 0.0  # [m]
+
+ # extrinsic RPY
+  rotation: 
+    roll: 0.0  # [rad]
+    pitch: 0.0 # [rad]
+    yaw: 0.0   # [rad]
+
 # the estimation will happen in this frame of refernece
 # (detections are transformed to this frame first)
 estimation_frame: "fixed_origin"

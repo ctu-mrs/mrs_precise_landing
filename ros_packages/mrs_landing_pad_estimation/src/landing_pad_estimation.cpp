@@ -93,6 +93,9 @@ private:
   double           max_relative_distance_;
   bool             _autoprefix_uav_name_;
 
+  double relative_x, relative_y, relative_z;
+  double relative_roll, relative_pitch, relative_yaw;
+
   mrs_lib::Transformer transformer_;
 
   mrs_lib::SubscribeHandler<apriltag_ros::AprilTagDetectionArray> sh_tag_detections_;
@@ -141,6 +144,14 @@ void LandingPadEstimation::onInit() {
   param_loader.loadParam("correction_timeout", _correction_timeout_);
   param_loader.loadParam("max_relative_distance", max_relative_distance_);
   param_loader.loadParam("transformer/autoprefix_uav_name", _autoprefix_uav_name_);
+
+  param_loader.loadParam("relative_transform/translation/x", relative_x);
+  param_loader.loadParam("relative_transform/translation/y", relative_y);
+  param_loader.loadParam("relative_transform/translation/z", relative_z);
+
+  param_loader.loadParam("relative_transform/rotation/roll", relative_roll);
+  param_loader.loadParam("relative_transform/rotation/pitch", relative_pitch);
+  param_loader.loadParam("relative_transform/rotation/yaw", relative_yaw);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[LandingPadEstimation]: Could not load all parameters!");
@@ -263,6 +274,43 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
     }
   }
 
+  // | ------------------ publish for debugging ----------------- |
+
+  ph_measurement_.publish(tag_pose.value());
+
+  // | ------------------------- offset ------------------------- |
+
+  {
+    geometry_msgs::TransformStamped offset_tf;
+    offset_tf.header                  = tag_pose.value().header;
+    offset_tf.transform.rotation      = mrs_lib::AttitudeConverter(relative_roll, relative_pitch, relative_yaw);
+    offset_tf.transform.translation.x = relative_x;
+    offset_tf.transform.translation.y = relative_y;
+    offset_tf.transform.translation.z = relative_z;
+
+    Eigen::Isometry3d offset_eig = tf2::transformToEigen(offset_tf);
+
+    geometry_msgs::TransformStamped tag_tf;
+    tag_tf.header                  = tag_pose.value().header;
+    tag_tf.transform.rotation      = tag_pose.value().pose.pose.orientation;
+    tag_tf.transform.translation.x = tag_pose.value().pose.pose.position.x;
+    tag_tf.transform.translation.y = tag_pose.value().pose.pose.position.y;
+    tag_tf.transform.translation.z = tag_pose.value().pose.pose.position.z;
+
+    Eigen::Isometry3d tag_eig = tf2::transformToEigen(tag_tf);
+
+    Eigen::Isometry3d prod = tag_eig * offset_eig;
+
+    Eigen::Affine3d affine(prod);
+
+    auto tf = tf2::eigenToTransform(affine);
+
+    tag_pose.value().pose.pose.position.x  = tf.transform.translation.x;
+    tag_pose.value().pose.pose.position.y  = tf.transform.translation.y;
+    tag_pose.value().pose.pose.position.z  = tf.transform.translation.z;
+    tag_pose.value().pose.pose.orientation = tf.transform.rotation;
+  }
+
   // | ------------------- transform the pose ------------------- |
 
   auto result = transformer_.transformSingle(tag_pose.value(), _full_estimation_frame_);
@@ -275,10 +323,6 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
   geometry_msgs::PoseWithCovarianceStamped tag_world_ = result.value();
 
   ROS_INFO_ONCE("[LandingPadEstimation]: receiving the right AprilTag");
-
-  // | ------------------ publish for debugging ----------------- |
-
-  ph_measurement_.publish(tag_world_);
 
   // | -------------------------- fuse -------------------------- |
 
