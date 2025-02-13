@@ -5,7 +5,7 @@ tag_ids: [0, 10] # [-]
 relative_transform:
 
   translation:
-    x: -0.2 # [m]
+    x: 0.0 # [m]
     y: 0.0  # [m]
     z: 0.0  # [m]
 
