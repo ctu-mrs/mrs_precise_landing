@@ -1,77 +1,86 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.28.0)
 project(mrs_landing_pad_estimation)
 
 set(LIBRARIES
   MrsLandingPadEstimation_LandingPadEstimation
-  )
+)
 
-set(CATKIN_DEPENDENCIES
-  cmake_modules
-  geometry_msgs
-  mrs_lib
-  mrs_msgs
-  nav_msgs
-  nodelet
-  roscpp
-  sensor_msgs
-  std_msgs
+set(DEPENDENCIES
+  rclcpp
+  rclcpp_components
   tf2
   tf2_ros
-  apriltag_ros
-  )
+  mrs_lib
+  geometry_msgs
+  mrs_msgs
+  nav_msgs
+  std_msgs
+  apriltag_msgs
+  Eigen3
+)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_definitions(-Wall)
-add_definitions(-Wextra)
+set(USE_ROS_TIMER 0)
 
-find_package(Eigen3 REQUIRED)
-set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
-set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
+if(${USE_ROS_TIMER})
+  MESSAGE(WARNING "[mrs_landing_pad_estimation]: Compiling with ROS Timers. This can cause high CPU load in runtime.")
+endif()
 
-find_package(catkin REQUIRED COMPONENTS
-  ${CATKIN_DEPENDENCIES}
-  )
+# set the compile options to show code warnings
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra)
+endif()
 
-catkin_package(
-  CATKIN_DEPENDS ${CATKIN_DEPENDENCIES}
-  LIBRARIES ${LIBRARIES}
-  DEPENDS Eigen
-  )
-
-include_directories(
-  ${catkin_INCLUDE_DIRS}
-  )
+foreach(DEP IN LISTS DEPENDENCIES)
+  find_package(${DEP} REQUIRED)
+endforeach()
 
 # LandingPadEstimation
 
-add_library(MrsLandingPadEstimation_LandingPadEstimation src/landing_pad_estimation.cpp)
-
-add_dependencies(MrsLandingPadEstimation_LandingPadEstimation
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-  )
+add_library(MrsLandingPadEstimation_LandingPadEstimation SHARED src/landing_pad_estimation.cpp)
 
 target_link_libraries(MrsLandingPadEstimation_LandingPadEstimation
-  ${catkin_LIBRARIES}
-  ${Eigen_LIBRARIES}
-  )
+  PUBLIC
+    rclcpp::rclcpp
+    rclcpp_components::component
+    tf2::tf2
+    tf2_ros::tf2_ros
+    mrs_lib::mrs_lib
+    ${geometry_msgss_TARGETS}
+    ${mrs_msgs_TARGETS}
+    ${nav_msgs_TARGETS}
+    ${std_msgs_TARGETS}
+    ${apriltag_msgs_TARGETS}
+    ${Eigen_LIBRARIES}
+)
+
+rclcpp_components_register_node(MrsLandingPadEstimation_LandingPadEstimation
+  PLUGIN "mrs_landing_pad_estimation::LandingPadEstimation"
+  EXECUTABLE MrsLandingPadEstimation_Node
+)
 
 ## --------------------------------------------------------------
 ## |                           Install                          |
 ## --------------------------------------------------------------
 
-install(TARGETS ${LIBRARIES}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
-  )
+install(TARGETS ${LIBRARIES} EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
 
 install(DIRECTORY launch config
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-  )
+  DESTINATION share/${PROJECT_NAME}
+)
 
-install(FILES nodelets.xml
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-  )
+ament_export_targets(
+  export_${PROJECT_NAME} HAS_LIBRARY_TARGET
+)
+
+ament_export_dependencies(
+  ${DEPENDENCIES}
+)
+
+ament_package()

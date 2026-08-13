@@ -1,73 +1,71 @@
-cmake_minimum_required(VERSION 3.1.2)
+cmake_minimum_required(VERSION 3.28.0)
 project(mrs_precise_landing)
 
 set(LIBRARIES
   MrsPreciseLanding_PreciseLanding
-  )
+)
 
-set(CATKIN_DEPENDENCIES
-  cmake_modules
-  roscpp
-  geometry_msgs
+set(DEPENDENCIES
+  rclcpp
+  rclcpp_components
   mrs_lib
-  nodelet
+  geometry_msgs
   mrs_msgs
-  )
+  Eigen3
+)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Eigen3 REQUIRED)
-set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
-set(Eigen_LIBRARIES ${Eigen_LIBRARIES})
+set(USE_ROS_TIMER 0)
 
-find_package(catkin REQUIRED COMPONENTS
-  ${CATKIN_DEPENDENCIES}
-  )
+if(${USE_ROS_TIMER})
+  MESSAGE(WARNING "[mrs_precise_landing]: Compiling with ROS Timers. This can cause high CPU load in runtime.")
+endif()
 
-find_package(Eigen3 REQUIRED)
-set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
-set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
-
-catkin_package(
-  CATKIN_DEPENDS ${CATKIN_DEPENDENCIES}
-  DEPENDS Eigen
-  LIBRARIES ${LIBRARIES}
-  )
-
-include_directories(
-  ${catkin_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIRS}
-  )
+foreach(DEP IN LISTS DEPENDENCIES)
+  find_package(${DEP} REQUIRED)
+endforeach()
 
 # PreciseLanding
 
-add_library(MrsPreciseLanding_PreciseLanding src/precise_landing.cpp)
-
-add_dependencies(MrsPreciseLanding_PreciseLanding
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-  )
+add_library(MrsPreciseLanding_PreciseLanding SHARED src/precise_landing.cpp)
 
 target_link_libraries(MrsPreciseLanding_PreciseLanding
-  ${catkin_LIBRARIES}
-  ${Eigen_LIBRARIES}
-  )
+  PUBLIC
+    rclcpp::rclcpp
+    rclcpp_components::component
+    mrs_lib::mrs_lib
+    ${geometry_msgss_TARGETS}
+    ${mrs_msgs_TARGETS}
+    ${Eigen_LIBRARIES}
+)
+
+rclcpp_components_register_node(MrsPreciseLanding_PreciseLanding
+  PLUGIN "mrs_precise_landing::PreciseLanding"
+  EXECUTABLE MrsPreciseLanding_Node
+)
 
 ## --------------------------------------------------------------
 ## |                           Install                          |
 ## --------------------------------------------------------------
 
-install(TARGETS ${LIBRARIES}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
-  )
+install(TARGETS ${LIBRARIES} EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
 
 install(DIRECTORY launch config
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-  )
+  DESTINATION share/${PROJECT_NAME}
+)
 
-install(FILES nodelets.xml
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-  )
+ament_export_targets(
+  export_${PROJECT_NAME} HAS_LIBRARY_TARGET
+)
+
+ament_export_dependencies(
+  ${DEPENDENCIES}
+)
+
+ament_package()

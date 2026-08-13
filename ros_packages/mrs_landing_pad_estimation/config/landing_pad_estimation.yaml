@@ -6,17 +6,16 @@ relative_transform:
 
   translation:
     x: 0.0 # [m]
-    y: 0.0  # [m]
-    z: 0.0  # [m]
+    y: 0.0 # [m]
+    z: 0.0 # [m]
 
- # extrinsic RPY
+  # extrinsic RPY
   rotation: 
     roll: 0.0  # [rad]
     pitch: 0.0 # [rad]
     yaw: 0.0   # [rad]
 
-# the estimation will happen in this frame of refernece
-# (detections are transformed to this frame first)
+# the estimation will happen in this frame of reference
 estimation_frame: "fixed_origin"
 
 # the UAV's body frame
@@ -25,11 +24,10 @@ body_frame: "fcu"
 # internal loop rate of the LKF
 prediction_rate: 100.0 # [Hz]
 
-# the node will stop fusing and outputing any data of detections are not coming for more than this
+# the node will stop fusing and outputting data if detections are missing longer than this
 correction_timeout: 2.0 # [s]
 
-# max relative distance to the landing tag
-# anything detection beyond this distance (in the fcu frame) will be thrown away
+# max relative distance to the landing tag (in the fcu frame)
 max_relative_distance: 8.0
 
 # settings for the mrs_lib::Transformer
@@ -39,7 +37,6 @@ transformer:
   autoprefix_uav_name: false
 
 # parameters for the LKF estimator
-# don't change
 lkf:
 
   # state matrix
@@ -48,8 +45,8 @@ lkf:
       0, 0, 1.0, 0,
       0, 0, 0, 1.0]
 
-  # input matrix
-  B: []
+  # input matrix (empty - no inputs)
+  # B: []
 
   # measurement noise
   R: [10.0, 0, 0, 0,

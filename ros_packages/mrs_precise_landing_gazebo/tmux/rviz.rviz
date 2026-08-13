@@ -1,5 +1,5 @@
 Panels:
-  - Class: rviz/Displays
+  - Class: rviz_common/Displays
     Help Height: 0
     Name: Displays
     Property Tree Widget:
@@ -9,36 +9,30 @@ Panels:
         - /Camera1/Visibility1
       Splitter Ratio: 0.6970587968826294
     Tree Height: 935
-  - Class: rviz/Selection
+  - Class: rviz_common/Selection
     Name: Selection
-  - Class: rviz/Tool Properties
+  - Class: rviz_common/Tool Properties
     Expanded:
-      - /2D Pose Estimate1
-      - /2D Nav Goal1
+      - /2D Goal Pose1
       - /Publish Point1
-      - /Plan path1
-      - /Custom Goal1
     Name: Tool Properties
     Splitter Ratio: 0.5886790156364441
-  - Class: rviz/Views
+  - Class: rviz_common/Views
     Expanded:
       - /Current View1
     Name: Views
     Splitter Ratio: 0.5
-  - Class: rviz/Time
+  - Class: rviz_common/Time
+    Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: detections
-Preferences:
-  PromptSaveOnExit: true
-Toolbars:
-  toolButtonStyle: 2
+    SyncSource: ""
 Visualization Manager:
   Class: ""
   Displays:
     - Alpha: 0.20000000298023224
       Cell Size: 1
-      Class: rviz/Grid
+      Class: rviz_default_plugins/Grid
       Color: 160; 160; 164
       Enabled: true
       Line Style:
@@ -56,7 +50,7 @@ Visualization Manager:
       Value: true
     - Alpha: 0.5
       Cell Size: 5
-      Class: rviz/Grid
+      Class: rviz_default_plugins/Grid
       Color: 160; 160; 164
       Enabled: true
       Line Style:
@@ -72,50 +66,23 @@ Visualization Manager:
       Plane Cell Count: 100
       Reference Frame: <Fixed Frame>
       Value: true
-    - Class: rviz/TF
+    - Class: rviz_default_plugins/TF
       Enabled: false
       Filter (blacklist): ""
       Filter (whitelist): ""
       Frame Timeout: 15
       Frames:
-        All Enabled: false
-      Marker Alpha: 1
+        All Enabled: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
-      Show Names: true
+      Show Names: false
       Tree:
         {}
       Update Interval: 0
       Value: false
-    - Alpha: 1
-      Class: rviz/RobotModel
-      Collision Enabled: false
-      Enabled: true
-      Links:
-        All Links Enabled: true
-        Expand Joint Details: false
-        Expand Link Details: false
-        Expand Tree: false
-        Link Tree Style: Links in Alphabetic Order
-        uav1/fcu:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        uav1/fcu/arms_red:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-      Name: UAVModel
-      Robot Description: /uav1/robot_model
-      TF Prefix: ""
-      Update Interval: 0
-      Value: true
-      Visual Enabled: true
-    - Class: rviz/Group
+    - Class: rviz_common/Group
       Displays:
         - Background color: 204; 204; 204
           Class: mrs_rviz_plugins/Status
@@ -132,18 +99,9 @@ Visualization Manager:
           Topic rates: true
           UAV name: uav1
           Value: true
-        - Class: rviz/InteractiveMarkers
-          Enable Transparency: true
-          Enabled: true
-          Name: Control Display
-          Show Axes: false
-          Show Descriptions: true
-          Show Visual Aids: false
-          Update Topic: control/update
-          Value: true
       Enabled: false
       Name: Status
-    - Class: rviz/Group
+    - Class: rviz_common/Group
       Displays:
         - Alpha: 1
           Autocompute Intensity Bounds: true
@@ -153,7 +111,7 @@ Visualization Manager:
             Value: true
           Axis: Z
           Channel Name: intensity
-          Class: rviz/PointCloud2
+          Class: rviz_default_plugins/PointCloud2
           Color: 255; 255; 255
           Color Transformer: AxisColor
           Decay Time: 0
@@ -163,13 +121,16 @@ Visualization Manager:
           Min Color: 0; 0; 0
           Name: ouster_raw
           Position Transformer: XYZ
-          Queue Size: 10
           Selectable: true
           Size (Pixels): 3
           Size (m): 0.10000000149011612
           Style: Spheres
-          Topic: /uav1/os_cloud_nodelet/points
-          Unreliable: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /uav1/os_cloud_nodelet/points
           Use Fixed Frame: true
           Use rainbow: true
           Value: true
@@ -181,7 +142,7 @@ Visualization Manager:
             Value: true
           Axis: Z
           Channel Name: intensity
-          Class: rviz/LaserScan
+          Class: rviz_default_plugins/LaserScan
           Color: 0; 0; 0
           Color Transformer: FlatColor
           Decay Time: 0
@@ -191,58 +152,61 @@ Visualization Manager:
           Min Color: 0; 0; 0
           Name: rplidar
           Position Transformer: XYZ
-          Queue Size: 10
           Selectable: true
           Size (Pixels): 3
           Size (m): 0.10000000149011612
           Style: Flat Squares
-          Topic: /uav1/rplidar/scan
-          Unreliable: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /uav1/rplidar/scan
           Use Fixed Frame: true
           Use rainbow: true
           Value: true
-        - Class: rviz/Image
-          Enabled: false
-          Image Topic: /uav1/vio/camera/image_raw
-          Max Value: 1
-          Median window: 5
-          Min Value: 0
-          Name: vio_camera
-          Normalize Range: true
-          Queue Size: 2
-          Transport Hint: raw
-          Unreliable: false
-          Value: false
       Enabled: true
       Name: Sensors
-    - Class: rviz/Group
+    - Class: rviz_common/Group
       Displays:
-        - Class: rviz/MarkerArray
+        - Class: rviz_default_plugins/MarkerArray
           Enabled: true
-          Marker Topic: /uav1/control_manager/safety_area_markers
-          Name: SafetyhArea
+          Name: SafetyArea
           Namespaces:
             "": true
-          Queue Size: 100
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /uav1/control_manager/safety_area_markers
           Value: true
-        - Class: rviz/MarkerArray
+        - Class: rviz_default_plugins/MarkerArray
           Enabled: true
-          Marker Topic: /uav1/control_manager/safety_area_coordinates_markers
           Name: SafetyAreaCoordinates
           Namespaces:
             "": true
-          Queue Size: 100
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /uav1/control_manager/safety_area_coordinates_markers
           Value: true
-        - Class: rviz/MarkerArray
+        - Class: rviz_default_plugins/MarkerArray
           Enabled: true
-          Marker Topic: /uav1/control_manager/disturbances_markers
           Name: Disturbances
           Namespaces:
             control_manager: true
-          Queue Size: 100
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /uav1/control_manager/disturbances_markers
           Value: true
         - Angle Tolerance: 0.009999999776482582
-          Class: rviz/Odometry
+          Class: rviz_default_plugins/Odometry
           Covariance:
             Orientation:
               Alpha: 0.5
@@ -262,7 +226,6 @@ Visualization Manager:
           Keep: 1
           Name: control_reference
           Position Tolerance: 0.009999999776482582
-          Queue Size: 10
           Shape:
             Alpha: 1
             Axes Length: 1
@@ -273,35 +236,46 @@ Visualization Manager:
             Shaft Length: 1
             Shaft Radius: 0.05000000074505806
             Value: Axes
-          Topic: /uav1/control_manager/control_reference
-          Unreliable: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /uav1/control_manager/control_reference
           Value: true
-        - Class: rviz/Group
+        - Class: rviz_common/Group
           Displays:
             - Alpha: 1
               Arrow Length: 0.30000001192092896
               Axes Length: 0.30000001192092896
               Axes Radius: 0.009999999776482582
-              Class: rviz/PoseArray
+              Class: rviz_default_plugins/PoseArray
               Color: 0; 170; 0
               Enabled: true
               Head Length: 0.07000000029802322
               Head Radius: 0.029999999329447746
               Name: Poses
-              Queue Size: 10
               Shaft Length: 0.23000000417232513
               Shaft Radius: 0.009999999776482582
               Shape: Arrow (Flat)
-              Topic: /uav1/control_manager/trajectory_original/poses
-              Unreliable: true
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: /uav1/control_manager/trajectory_original/poses
               Value: true
-            - Class: rviz/MarkerArray
+            - Class: rviz_default_plugins/MarkerArray
               Enabled: true
-              Marker Topic: /uav1/control_manager/trajectory_original/markers
               Name: Markers
               Namespaces:
                 "": true
-              Queue Size: 100
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: /uav1/control_manager/trajectory_original/markers
               Value: true
           Enabled: true
           Name: OriginalTrajectory
@@ -316,19 +290,22 @@ Visualization Manager:
           History Length: 1
           Horizontal collision threshold: 1
           Name: Bumper
-          Queue Size: 10
           Show sectors with no data: false
           Show undetected obstacles: true
-          Topic: /uav1/bumper/obstacle_sectors
-          Unreliable: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /uav1/bumper/obstacle_sectors
           Value: true
           Vertical collision threshold: 1
       Enabled: true
       Name: ControlManager
-    - Class: rviz/Group
+    - Class: rviz_common/Group
       Displays:
         - Angle Tolerance: 0.009999999776482582
-          Class: rviz/Odometry
+          Class: rviz_default_plugins/Odometry
           Covariance:
             Orientation:
               Alpha: 0.5
@@ -348,7 +325,6 @@ Visualization Manager:
           Keep: 1
           Name: odom_main
           Position Tolerance: 0.009999999776482582
-          Queue Size: 10
           Shape:
             Alpha: 1
             Axes Length: 0.5
@@ -359,106 +335,131 @@ Visualization Manager:
             Shaft Length: 1
             Shaft Radius: 0.05000000074505806
             Value: Axes
-          Topic: /uav1/estimation_manager/odom_main
-          Unreliable: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /uav1/estimation_manager/odom_main
           Value: true
       Enabled: true
       Name: EstimationManager
-    - Class: rviz/Group
+    - Class: rviz_common/Group
       Displays:
         - Alpha: 1
           Arrow Length: 0.30000001192092896
           Axes Length: 0.30000001192092896
           Axes Radius: 0.009999999776482582
-          Class: rviz/PoseArray
+          Class: rviz_default_plugins/PoseArray
           Color: 0; 0; 255
           Enabled: true
           Head Length: 0.07000000029802322
           Head Radius: 0.029999999329447746
           Name: MpcPredictionTrajectory
-          Queue Size: 10
           Shaft Length: 0.23000000417232513
           Shaft Radius: 0.009999999776482582
           Shape: Arrow (Flat)
-          Topic: /uav1/control_manager/mpc_tracker/predicted_trajectory_debugging
-          Unreliable: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /uav1/control_manager/mpc_tracker/predicted_trajectory_debugging
           Value: true
         - Alpha: 1
           Arrow Length: 0.30000001192092896
           Axes Length: 0.10000000149011612
           Axes Radius: 0.05000000074505806
-          Class: rviz/PoseArray
+          Class: rviz_default_plugins/PoseArray
           Color: 255; 25; 0
           Enabled: true
           Head Length: 0.07000000029802322
           Head Radius: 0.029999999329447746
           Name: MpcInnerReference
-          Queue Size: 10
           Shaft Length: 0.23000000417232513
           Shaft Radius: 0.009999999776482582
           Shape: Axes
-          Topic: /uav1/control_manager/mpc_tracker/mpc_reference_debugging
-          Unreliable: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /uav1/control_manager/mpc_tracker/mpc_reference_debugging
           Value: true
-        - Class: rviz/Group
+        - Class: rviz_common/Group
           Displays:
             - Alpha: 1
               Arrow Length: 0.30000001192092896
               Axes Length: 0.30000001192092896
               Axes Radius: 0.009999999776482582
-              Class: rviz/PoseArray
+              Class: rviz_default_plugins/PoseArray
               Color: 255; 25; 0
               Enabled: true
               Head Length: 0.07000000029802322
               Head Radius: 0.029999999329447746
               Name: Poses
-              Queue Size: 10
               Shaft Length: 0.23000000417232513
               Shaft Radius: 0.009999999776482582
               Shape: Arrow (Flat)
-              Topic: /uav1/control_manager/mpc_tracker/trajectory_processed/poses
-              Unreliable: true
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: /uav1/control_manager/mpc_tracker/trajectory_processed/poses
               Value: true
-            - Class: rviz/MarkerArray
+            - Class: rviz_default_plugins/MarkerArray
               Enabled: true
-              Marker Topic: /uav1/control_manager/mpc_tracker/trajectory_processed/markers
               Name: Markers
               Namespaces:
                 "": true
-              Queue Size: 100
+              Topic:
+                Depth: 5
+                Durability Policy: Volatile
+                History Policy: Keep Last
+                Reliability Policy: Reliable
+                Value: /uav1/control_manager/mpc_tracker/trajectory_processed/markers
               Value: true
           Enabled: true
           Name: PostprocessedTrajectory
       Enabled: true
       Name: MpcTracker
-    - Class: rviz/Group
+    - Class: rviz_common/Group
       Displays:
-        - Class: rviz/MarkerArray
+        - Class: rviz_default_plugins/MarkerArray
           Enabled: true
-          Marker Topic: /uav1/trajectory_generation/markers/final
           Name: final
           Namespaces:
             markers/final_lines: true
             markers/final_points: true
             markers/final_triangles: true
-          Queue Size: 100
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /uav1/trajectory_generation/markers/final
           Value: true
-        - Class: rviz/MarkerArray
+        - Class: rviz_default_plugins/MarkerArray
           Enabled: true
-          Marker Topic: /uav1/trajectory_generation/markers/original
           Name: original
           Namespaces:
             markers/original_lines: true
             markers/original_points: true
             markers/original_triangles: true
-          Queue Size: 100
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /uav1/trajectory_generation/markers/original
           Value: true
       Enabled: true
       Name: TrajectoryGeneration
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.10000000149011612
-      Class: rviz/PoseWithCovariance
+      Class: rviz_default_plugins/PoseWithCovariance
       Color: 255; 25; 0
       Covariance:
         Orientation:
@@ -479,17 +480,20 @@ Visualization Manager:
       Head Length: 0.30000001192092896
       Head Radius: 0.10000000149011612
       Name: landing_pad_estimate
-      Queue Size: 10
       Shaft Length: 1
       Shaft Radius: 0.05000000074505806
       Shape: Axes
-      Topic: /uav1/landing_pad_estimation/pose_estimate
-      Unreliable: false
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /uav1/landing_pad_estimation/pose_estimate
       Value: true
     - Alpha: 1
       Axes Length: 0.5
       Axes Radius: 0.20000000298023224
-      Class: rviz/PoseWithCovariance
+      Class: rviz_default_plugins/PoseWithCovariance
       Color: 255; 25; 0
       Covariance:
         Orientation:
@@ -510,34 +514,41 @@ Visualization Manager:
       Head Length: 0.30000001192092896
       Head Radius: 0.10000000149011612
       Name: landing_pad_measurement
-      Queue Size: 10
       Shaft Length: 1
       Shaft Radius: 0.05000000074505806
       Shape: Axes
-      Topic: /uav1/landing_pad_estimation/pose_measurement
-      Unreliable: false
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /uav1/landing_pad_estimation/pose_measurement
       Value: true
-    - Class: rviz/Image
+    - Class: rviz_default_plugins/Image
       Enabled: true
-      Image Topic: /uav1/apriltag_detector/tag_detections_image
       Max Value: 1
       Median window: 5
       Min Value: 0
       Name: detections
       Normalize Range: true
-      Queue Size: 2
-      Transport Hint: raw
-      Unreliable: false
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /uav1/apriltag_detector/tag_detections_image
       Value: true
-    - Class: rviz/Camera
+    - Class: rviz_default_plugins/Camera
       Enabled: true
       Image Rendering: background and overlay
-      Image Topic: /uav1/bluefox_optflow/image_raw
       Name: Camera
       Overlay Alpha: 0.5
-      Queue Size: 2
-      Transport Hint: raw
-      Unreliable: false
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /uav1/bluefox_optflow/image_raw
       Value: true
       Visibility:
         ControlManager:
@@ -591,22 +602,34 @@ Visualization Manager:
     Frame Rate: 60
   Name: root
   Tools:
-    - Class: rviz/Interact
+    - Class: rviz_default_plugins/Interact
       Hide Inactive Objects: true
-    - Class: rviz/MoveCamera
-    - Class: rviz/Select
-    - Class: rviz/FocusCamera
-    - Class: rviz/Measure
-    - Class: rviz/SetInitialPose
-      Theta std deviation: 0.2617993950843811
-      Topic: /initialpose
-      X std deviation: 0.5
-      Y std deviation: 0.5
-    - Class: rviz/SetGoal
-      Topic: /move_base_simple/goal
-    - Class: rviz/PublishPoint
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+    - Class: rviz_default_plugins/SetInitialPose
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /initialpose
+    - Class: rviz_default_plugins/SetGoal
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /goal_pose
+    - Class: rviz_default_plugins/PublishPoint
       Single click: true
-      Topic: /clicked_point
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /clicked_point
     - Class: mrs_rviz_plugins/ControlTool
     - Class: mrs_rviz_plugins/WaypointPlanner
       Drone name: uav1
@@ -620,17 +643,19 @@ Visualization Manager:
     - Class: mrs_rviz_plugins/NamedSetGoal
       Name: name
       Topic: goal
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
   Value: true
   Views:
     Current:
-      Class: rviz/Orbit
+      Class: rviz_default_plugins/Orbit
       Distance: 8.42684555053711
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
-      Field of View: 0.7853981852531433
       Focal Point:
         X: 1.1707956790924072
         Y: -1.1915363073349
@@ -642,6 +667,7 @@ Visualization Manager:
       Near Clip Distance: 0.009999999776482582
       Pitch: 0.2047971934080124
       Target Frame: uav1/fcu
+      Value: Orbit (rviz)
       Yaw: 5.0735578536987305
     Saved: ~
 Window Geometry:
@@ -652,19 +678,8 @@ Window Geometry:
   Height: 506
   Hide Left Dock: true
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000002c2000003e2fc020000000bfb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073000000003b000003e2000000c700fffffffb0000001400760069006f005f00630061006d0065007200610000000122000000bd0000001600fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006501000001400000009f0000000000000000fb0000001400760069006f005f00630061006d00650072006100000001400000009f0000000000000000fb0000000a0049006d006100670065000000015d0000008200000000000000000000000100000164000001a4fc0200000007fb0000001e0054006f006f006c002000500072006f0070006500720074006900650073000000003b0000005c0000005c00fffffffb0000000a00560069006500770073000000003b000000c4000000a000fffffffb0000000c00430061006d006500720061010000003b000000cf0000001600fffffffb000000140064006500740065006300740069006f006e00730100000110000000cf0000001600fffffffb0000000c00430061006d006500720061010000011e000000c10000000000000000fb0000001e0054006f006f006c002000500072006f0070006500720074006900650073000000016d0000016e0000000000000000fb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000003a800000081fc0100000002fb0000000800540069006d006500000000000000038f0000035700fffffffb0000000800540069006d006501000000000000045000000000000000000000023e000001a400000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
-  Selection:
-    collapsed: false
-  Time:
-    collapsed: false
-  Tool Properties:
-    collapsed: false
-  Views:
-    collapsed: false
   Width: 936
   X: 966
   Y: 32
   detections:
-    collapsed: false
-  vio_camera:
     collapsed: false

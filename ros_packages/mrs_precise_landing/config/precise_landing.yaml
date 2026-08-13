@@ -5,7 +5,6 @@ controller: "Se3Controller"
 tracker: "MpcTracker"
 
 # the frame in which all the operations are conducted
-# (all the incoming data is transformed to this frame first)
 frame_id: "fixed_origin"
 
 desired_heading:
@@ -31,7 +30,6 @@ stages:
 
     timeout: 15.0 # [s]
 
-    # the alignment criterion is relaxed as the time goes
     criterion:
 
       initial_radius: 0.03         # [m], +-
@@ -42,7 +40,7 @@ stages:
 
   landing:
     speed: 0.5          # [m/s]
-    height: -1.0        # [m], this is relative to the tracker_cmdk
+    height: -1.0        # [m], this is relative to the tracker_cmd
     repeat_threshold: 2 # [-]
 
     disarming:
@@ -63,5 +61,5 @@ stages:
 # rate of the feedback loop
 rate: 10.0 # [Hz]
 
-# sampling rate of the outcoming trajectory
+# sampling rate of the outgoing trajectory
 trajectory_dt: 0.20 # [s]

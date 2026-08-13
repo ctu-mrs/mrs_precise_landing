@@ -1,10 +1,11 @@
 /* include //{ */
 
-#include <ros/ros.h>
-#include <nodelet/nodelet.h>
+#include <rclcpp/rclcpp.hpp>
+#include <mrs_lib/node.h>
 
 #include <map>
 #include <Eigen/Eigen>
+#include <tf2_eigen/tf2_eigen.hpp>
 
 #include <mrs_lib/lkf.h>
 #include <mrs_lib/param_loader.h>
@@ -13,11 +14,20 @@
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
 #include <mrs_lib/attitude_converter.h>
-#include <mrs_lib/subscribe_handler.h>
+#include <mrs_lib/subscriber_handler.h>
 #include <mrs_lib/publisher_handler.h>
 
-#include <apriltag_ros/AprilTagDetectionArray.h>
-#include <apriltag_ros/AprilTagDetection.h>
+#include <apriltag_msgs/msg/april_tag_detection_array.hpp>
+
+//}
+
+/* typedefs //{ */
+
+#if USE_ROS_TIMER == 1
+typedef mrs_lib::ROSTimer TimerType;
+#else
+typedef mrs_lib::ThreadTimer TimerType;
+#endif
 
 //}
 
@@ -69,23 +79,24 @@ using statecov_t = lkf_t::statecov_t;
 
 /* class LandingPadEstimation() //{ */
 
-class LandingPadEstimation : public nodelet::Nodelet {
+class LandingPadEstimation : public mrs_lib::Node {
 
 public:
-  virtual void onInit();
-  bool         is_initialized_ = false;
+  LandingPadEstimation(rclcpp::NodeOptions options);
 
   void iterate(const double dt);
   void publish(void);
 
 private:
-  ros::NodeHandle nh_;
+  rclcpp::Node::SharedPtr  node_;
+  rclcpp::Clock::SharedPtr clock_;
+  bool is_initialized_ = false;
 
   // params
-  double           _prediction_rate_;
-  std::string      _uav_name_;
-  std::vector<int> _tag_ids_;
-  std::string      _estimation_frame_;
+  double               _prediction_rate_;
+  std::string          _uav_name_;
+  std::vector<int64_t> _tag_ids_;
+  std::string          _estimation_frame_;
   std::string      _full_estimation_frame_;
   std::string      _body_frame_;
   std::string      _full_body_frame_;
@@ -98,12 +109,12 @@ private:
 
   mrs_lib::Transformer transformer_;
 
-  mrs_lib::SubscribeHandler<apriltag_ros::AprilTagDetectionArray> sh_tag_detections_;
+  mrs_lib::SubscriberHandler<apriltag_msgs::msg::AprilTagDetectionArray> sh_tag_detections_;
 
-  mrs_lib::PublisherHandler<geometry_msgs::PoseWithCovarianceStamped> ph_pose_;
-  mrs_lib::PublisherHandler<geometry_msgs::PoseWithCovarianceStamped> ph_measurement_;
+  mrs_lib::PublisherHandler<geometry_msgs::msg::PoseWithCovarianceStamped> ph_pose_;
+  mrs_lib::PublisherHandler<geometry_msgs::msg::PoseWithCovarianceStamped> ph_measurement_;
 
-  void callbackTagDetections(const apriltag_ros::AprilTagDetectionArray::ConstPtr msg);
+  void callbackTagDetections(const apriltag_msgs::msg::AprilTagDetectionArray::ConstSharedPtr msg);
 
   // lkf matrices
   A_t A_;
@@ -115,26 +126,31 @@ private:
   std::unique_ptr<lkf_t> lkf_;
 
   std::optional<statecov_t> statecov_;
-  ros::Time                 time_last_correction_;
+  rclcpp::Time              time_last_correction_;
   std::mutex                mutex_statecov_;
 
-  ros::Timer timer_main_;
-  void       timerMain(const ros::TimerEvent& event);
+  std::shared_ptr<TimerType> timer_main_;
+  rclcpp::Time last_time_{0, 0};
+  void timerMain();
 };
 
 //}
 
-/* onInit() //{ */
+/* LandingPadEstimation() //{ */
 
-void LandingPadEstimation::onInit() {
+LandingPadEstimation::LandingPadEstimation(rclcpp::NodeOptions options) : mrs_lib::Node("LandingPadEstimation", options) {
 
-  nh_ = nodelet::Nodelet::getMTPrivateNodeHandle();
-
-  ros::Time::waitForValid();
+  node_ = this_node_ptr();
+  clock_ = node_->get_clock();
 
   // | ----------------------- load params ---------------------- |
 
-  mrs_lib::ParamLoader param_loader(nh_, "LandingPadEstimation");
+  mrs_lib::ParamLoader param_loader(node_);
+  param_loader.addYamlFileFromParam("config");
+
+  std::string custom_config_path;
+  if (param_loader.loadParam("custom_config", custom_config_path) && !custom_config_path.empty())
+    param_loader.addYamlFileFromParam("custom_config");
 
   param_loader.loadParam("prediction_rate", _prediction_rate_);
   param_loader.loadParam("uav_name", _uav_name_);
@@ -154,8 +170,8 @@ void LandingPadEstimation::onInit() {
   param_loader.loadParam("relative_transform/rotation/yaw", relative_yaw);
 
   if (!param_loader.loadedSuccessfully()) {
-    ROS_ERROR("[LandingPadEstimation]: Could not load all parameters!");
-    ros::shutdown();
+    RCLCPP_ERROR(node_->get_logger(), "Could not load all parameters!");
+    rclcpp::shutdown();
   }
 
   _full_estimation_frame_ = _uav_name_ + "/" + _estimation_frame_;
@@ -164,8 +180,8 @@ void LandingPadEstimation::onInit() {
   // state matrix
   param_loader.loadMatrixStatic("lkf/A", A_);
 
-  // input matrix
-  param_loader.loadMatrixStatic("lkf/B", B_);
+  // input matrix (n_inputs = 0)
+  // param_loader.loadMatrixStatic("lkf/B", B_);
 
   // measurement noise
   param_loader.loadMatrixStatic("lkf/R", R_);
@@ -178,30 +194,37 @@ void LandingPadEstimation::onInit() {
 
   // | ----------------------- subscribers ---------------------- |
 
-  mrs_lib::SubscribeHandlerOptions shopts;
-  shopts.nh                 = nh_;
-  shopts.node_name          = "LandingPadEstimation";
+  mrs_lib::SubscriberHandlerOptions shopts;
+  shopts.node               = node_;
+  //shopts.node_name          = "LandingPadEstimation";
   shopts.no_message_timeout = mrs_lib::no_timeout;
   shopts.threadsafe         = true;
   shopts.autostart          = true;
-  shopts.queue_size         = 10;
-  shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
+  //shopts.queue_size         = 10;
+  //shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
 
   sh_tag_detections_ =
-      mrs_lib::SubscribeHandler<apriltag_ros::AprilTagDetectionArray>(shopts, "tag_detections_in", &LandingPadEstimation::callbackTagDetections, this);
+      mrs_lib::SubscriberHandler<apriltag_msgs::msg::AprilTagDetectionArray>(shopts, "tag_detections_in", &LandingPadEstimation::callbackTagDetections, this);
 
   // | ----------------------- publishers ----------------------- |
 
-  ph_pose_        = mrs_lib::PublisherHandler<geometry_msgs::PoseWithCovarianceStamped>(nh_, "estimated_pose_out", 10);
-  ph_measurement_ = mrs_lib::PublisherHandler<geometry_msgs::PoseWithCovarianceStamped>(nh_, "measurement_pose_out", 10);
+  ph_pose_        = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseWithCovarianceStamped>(node_, "estimated_pose_out");
+  ph_measurement_ = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseWithCovarianceStamped>(node_, "measurement_pose_out");
 
   // | ------------------------- timers ------------------------- |
 
-  timer_main_ = nh_.createTimer(ros::Rate(_prediction_rate_), &LandingPadEstimation::timerMain, this);
+  {
+    mrs_lib::TimerHandlerOptions timer_opts_start;
+
+    timer_opts_start.node      = node_;
+    timer_opts_start.autostart = true;
+
+    timer_main_ = std::make_shared<TimerType>(timer_opts_start, rclcpp::Rate(_prediction_rate_, clock_), std::bind(&LandingPadEstimation::timerMain, this));
+  }
 
   // | ----------------------- transfomer ----------------------- |
 
-  transformer_ = mrs_lib::Transformer("LandingPadEstimation");
+  transformer_ = mrs_lib::Transformer(node_);
 
   if (_autoprefix_uav_name_) {
     transformer_.setDefaultPrefix(_uav_name_);
@@ -217,7 +240,7 @@ void LandingPadEstimation::onInit() {
 
   is_initialized_ = true;
 
-  ROS_INFO("[LandingPadEstimation]: initialized");
+  RCLCPP_INFO(node_->get_logger(), "initialized");
 }
 
 //}
@@ -228,33 +251,49 @@ void LandingPadEstimation::onInit() {
 
 /* callbackTagDetections() //{ */
 
-void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDetectionArray::ConstPtr msg) {
+void LandingPadEstimation::callbackTagDetections(const apriltag_msgs::msg::AprilTagDetectionArray::ConstSharedPtr msg) {
 
   if (!is_initialized_) {
     return;
   }
 
-  ROS_INFO_ONCE("[LandingPadEstimation]: receiving detections");
+  RCLCPP_INFO_ONCE(node_->get_logger(), "receiving detections");
 
   // | ----------------- retrive the tag's pose ----------------- |
 
-  std::optional<geometry_msgs::PoseWithCovarianceStamped> tag_pose;
+  std::optional<geometry_msgs::msg::PoseWithCovarianceStamped> tag_pose;
 
-  std::map<int, apriltag_ros::AprilTagDetection> detection_map;
+  std::map<int64_t, apriltag_msgs::msg::AprilTagDetection> detection_map;
 
-  for (auto tag : msg->detections) {
-    detection_map.insert(std::pair(tag.id[0], tag));
+  for (const auto& tag : msg->detections) {
+    detection_map.insert({tag.id, tag});
   }
 
-  for (auto desired_id : _tag_ids_) {
-    if (detection_map.find(desired_id) != detection_map.end()) {
-      tag_pose = detection_map.at(desired_id).pose;
+  for (const auto desired_id : _tag_ids_) {
+    const auto it = detection_map.find(desired_id);
+    if (it != detection_map.end()) {
+      const std::string tag_frame = it->second.family + ":" + std::to_string(it->second.id);
+
+      auto tf_opt = transformer_.getTransform(tag_frame, msg->header.frame_id, msg->header.stamp);
+      if (!tf_opt) {
+        tf_opt = transformer_.getTransform(tag_frame, msg->header.frame_id, rclcpp::Time(0));
+      }
+
+      if (tf_opt) {
+        geometry_msgs::msg::PoseWithCovarianceStamped pose_msg;
+        pose_msg.header                = tf_opt->header;
+        pose_msg.pose.pose.position.x  = tf_opt->transform.translation.x;
+        pose_msg.pose.pose.position.y  = tf_opt->transform.translation.y;
+        pose_msg.pose.pose.position.z  = tf_opt->transform.translation.z;
+        pose_msg.pose.pose.orientation = tf_opt->transform.rotation;
+        tag_pose                       = pose_msg;
+      }
       break;
     }
   }
 
   if (!tag_pose) {
-    ROS_DEBUG_THROTTLE(1.0, "[LandingPadEstimation]: tags with the right ids not found");
+    RCLCPP_DEBUG_THROTTLE(node_->get_logger(), *clock_, 1000, "tags with the right ids not found");
     return;
   }
 
@@ -264,12 +303,12 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
     auto result = transformer_.transformSingle(tag_pose.value(), _full_body_frame_);
 
     if (!result) {
-      ROS_ERROR("[LandingPadEstimation]: could not transform the tag detection to '%s'", _full_body_frame_.c_str());
+      RCLCPP_ERROR(node_->get_logger(), "could not transform the tag detection to '%s'", _full_body_frame_.c_str());
       return;
     }
 
     if (std::hypot(result->pose.pose.position.x, result->pose.pose.position.y, result->pose.pose.position.z) > max_relative_distance_) {
-      ROS_WARN_THROTTLE(1.0, "[LandingPadEstimation]: detection too far from the UAV");
+      RCLCPP_WARN_THROTTLE(node_->get_logger(), *clock_, 1000, "detection too far from the UAV");
       return;
     }
   }
@@ -281,34 +320,15 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
   // | ------------------------- offset ------------------------- |
 
   {
-    geometry_msgs::TransformStamped offset_tf;
-    offset_tf.header                  = tag_pose.value().header;
-    offset_tf.transform.rotation      = mrs_lib::AttitudeConverter(relative_roll, relative_pitch, relative_yaw);
-    offset_tf.transform.translation.x = relative_x;
-    offset_tf.transform.translation.y = relative_y;
-    offset_tf.transform.translation.z = relative_z;
+    // Convert current pose to Eigen
+    Eigen::Isometry3d tag_eig;
+    tf2::fromMsg(tag_pose.value().pose.pose, tag_eig);
 
-    Eigen::Isometry3d offset_eig = tf2::transformToEigen(offset_tf);
+    // Create offset transform directly in Eigen
+    const Eigen::Isometry3d offset_eig = Eigen::Translation3d(relative_x, relative_y, relative_z) * Eigen::Quaterniond(mrs_lib::AttitudeConverter(relative_roll, relative_pitch, relative_yaw));
 
-    geometry_msgs::TransformStamped tag_tf;
-    tag_tf.header                  = tag_pose.value().header;
-    tag_tf.transform.rotation      = tag_pose.value().pose.pose.orientation;
-    tag_tf.transform.translation.x = tag_pose.value().pose.pose.position.x;
-    tag_tf.transform.translation.y = tag_pose.value().pose.pose.position.y;
-    tag_tf.transform.translation.z = tag_pose.value().pose.pose.position.z;
-
-    Eigen::Isometry3d tag_eig = tf2::transformToEigen(tag_tf);
-
-    Eigen::Isometry3d prod = tag_eig * offset_eig;
-
-    Eigen::Affine3d affine(prod);
-
-    auto tf = tf2::eigenToTransform(affine);
-
-    tag_pose.value().pose.pose.position.x  = tf.transform.translation.x;
-    tag_pose.value().pose.pose.position.y  = tf.transform.translation.y;
-    tag_pose.value().pose.pose.position.z  = tf.transform.translation.z;
-    tag_pose.value().pose.pose.orientation = tf.transform.rotation;
+    // Multiply transforms and convert back to geometry_msgs::msg::Pose directly
+    tag_pose.value().pose.pose = tf2::toMsg(tag_eig * offset_eig);
   }
 
   // | ------------------- transform the pose ------------------- |
@@ -316,13 +336,13 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
   auto result = transformer_.transformSingle(tag_pose.value(), _full_estimation_frame_);
 
   if (!result) {
-    ROS_ERROR("[LandingPadEstimation]: could not transform the tag detection to '%s'", _full_estimation_frame_.c_str());
+    RCLCPP_ERROR(node_->get_logger(), "could not transform the tag detection to '%s'", _full_estimation_frame_.c_str());
     return;
   }
 
-  geometry_msgs::PoseWithCovarianceStamped tag_world_ = result.value();
+  geometry_msgs::msg::PoseWithCovarianceStamped tag_world_ = result.value();
 
-  ROS_INFO_ONCE("[LandingPadEstimation]: receiving the right AprilTag");
+  RCLCPP_INFO_ONCE(node_->get_logger(), "receiving the right AprilTag");
 
   // | -------------------------- fuse -------------------------- |
 
@@ -337,7 +357,7 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
 
     statecov->P = P_t::Identity();
 
-    ROS_INFO("[LandingPadEstimation]: statecov initialized");
+    RCLCPP_INFO(node_->get_logger(), "statecov initialized");
   }
 
   // create the measurement vector
@@ -347,7 +367,7 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
 
   measurement << tag_world_.pose.pose.position.x, tag_world_.pose.pose.position.y, tag_world_.pose.pose.position.z, mes_heading;
 
-  ROS_DEBUG_STREAM("[LandingPadEstimation]: measurement: " << measurement.transpose());
+  RCLCPP_DEBUG_STREAM(node_->get_logger(), "measurement: " << measurement.transpose());
 
   try {
     statecov = lkf_->correct(*statecov, measurement, R_);
@@ -355,13 +375,13 @@ void LandingPadEstimation::callbackTagDetections(const apriltag_ros::AprilTagDet
     statecov->stamp = tag_world_.header.stamp;
   }
   catch (...) {
-    ROS_ERROR("[LandingPadEstimation]: correction step failed");
+    RCLCPP_ERROR(node_->get_logger(), "correction step failed");
     return;
   }
 
-  ros::Time time_last_correction = ros::Time::now();
+  rclcpp::Time time_last_correction = clock_->now();
 
-  ROS_DEBUG("[LandingPadEstimation]: correct: x=%.2f, y=%.2f, z=%.2f, hdg=%.2f", statecov->x[0], statecov->x[1], statecov->x[2], statecov->x[3]);
+  RCLCPP_DEBUG(node_->get_logger(), "correct: x=%.2f, y=%.2f, z=%.2f, hdg=%.2f", statecov->x[0], statecov->x[1], statecov->x[2], statecov->x[3]);
 
   {
     std::scoped_lock lock(mutex_statecov_);
@@ -387,17 +407,17 @@ void LandingPadEstimation::publish() {
     return;
   }
 
-  if (time_last_correction == ros::Time::UNINITIALIZED || (ros::Time::now() - time_last_correction).toSec() > _correction_timeout_) {
+  if (time_last_correction == rclcpp::Time(0) || (clock_->now() - time_last_correction).seconds() > _correction_timeout_) {
 
-    ROS_WARN_THROTTLE(1.0, "[LandingPadEstimation]: landing pad detections timeouted");
+    RCLCPP_WARN_THROTTLE(node_->get_logger(), *clock_, 1000, "landing pad detections timeouted");
 
-    time_last_correction_ = ros::Time::UNINITIALIZED;
+    time_last_correction_ = rclcpp::Time(0);
     mrs_lib::set_mutexed(mutex_statecov_, {}, statecov_);
 
     return;
   }
 
-  geometry_msgs::PoseWithCovarianceStamped pose;
+  geometry_msgs::msg::PoseWithCovarianceStamped pose;
 
   pose.header.frame_id = _uav_name_ + "/" + _estimation_frame_;
   pose.header.stamp    = statecov->stamp;
@@ -429,14 +449,14 @@ void LandingPadEstimation::iterate(const double dt) {
   try {
     statecov = lkf_->predict(*statecov, Eigen::VectorXd::Zero(_n_inputs_), Q_, dt);
 
-    statecov->stamp = ros::Time::now();
+    statecov->stamp = clock_->now();
   }
   catch (...) {
-    ROS_ERROR("[LandingPadEstimation]: prediction step failed");
+    RCLCPP_ERROR(node_->get_logger(), "prediction step failed");
     return;
   }
 
-  ROS_DEBUG("[LandingPadEstimation]: predict: x=%.2f, y=%.2f, z=%.2f, hdg=%.2f", statecov->x[0], statecov->x[1], statecov->x[2], statecov->x[3]);
+  RCLCPP_DEBUG(node_->get_logger(), "predict: x=%.2f, y=%.2f, z=%.2f, hdg=%.2f", statecov->x[0], statecov->x[1], statecov->x[2], statecov->x[3]);
 
   mrs_lib::set_mutexed(mutex_statecov_, statecov, statecov_);
 }
@@ -449,18 +469,26 @@ void LandingPadEstimation::iterate(const double dt) {
 
 /* timerMain() //{ */
 
-void LandingPadEstimation::timerMain([[maybe_unused]] const ros::TimerEvent& event) {
+void LandingPadEstimation::timerMain() {
 
   if (!is_initialized_) {
     return;
   }
 
   if (!statecov_) {
+    return;
   }
 
-  ROS_INFO_ONCE("[LandingPadEstimation]: timerMain() spinning");
+  RCLCPP_INFO_ONCE(node_->get_logger(), "timerMain() spinning");
+  const rclcpp::Time current_time = clock_->now();
 
-  iterate((event.current_real - event.last_real).toSec());
+  if (last_time_.nanoseconds() == 0) {
+    last_time_ = current_time;
+    return;
+  }
+
+  last_time_ = current_time;
+  iterate((current_time - last_time_).seconds());
 
   publish();
 }
@@ -469,5 +497,5 @@ void LandingPadEstimation::timerMain([[maybe_unused]] const ros::TimerEvent& eve
 
 }  // namespace mrs_landing_pad_estimation
 
-#include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_landing_pad_estimation::LandingPadEstimation, nodelet::Nodelet)
+#include <rclcpp_components/register_node_macro.hpp>
+RCLCPP_COMPONENTS_REGISTER_NODE(mrs_landing_pad_estimation::LandingPadEstimation)

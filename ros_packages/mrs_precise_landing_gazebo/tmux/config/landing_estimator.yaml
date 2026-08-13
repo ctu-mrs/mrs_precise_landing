@@ -1,6 +1,2 @@
-# the list of tag ids order according to their priority (highest-to-lowest)
-tag_ids: [0, 10] # [-]
-
-# the estimation will happen in this frame of refernece
-# (detections are transformed to this frame first)
+tag_ids: [0, 10]
 estimation_frame: "fixed_origin"

@@ -5,57 +5,61 @@ socket_name: mrs
 attach: false
 tmux_options: -f /etc/ctu-mrs/tmux.conf
 # you can modify these
-pre_window: export UAV_NAME=uav1; export RUN_TYPE=simulation; export UAV_TYPE=x500
-startup_window: land
+pre_window:
+  - export UAV_NAME=uav1
+  - export RUN_TYPE=simulation
+  - export UAV_TYPE=x500
+  - export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+  - export USE_SIM_TIME="true"
+startup_window: status
 windows:
-  - roscore:
+  - zenoh_router:
       layout: tiled
       panes:
-        - roscore
+        - ros2 run rmw_zenoh_cpp rmw_zenohd
   - gazebo:
       layout: tiled
       panes:
-        - waitForRos; roslaunch mrs_uav_gazebo_simulation simulation.launch world_file:=`rospack find mrs_precise_landing_gazebo`/worlds/apriltag.world gui:=true
-        - waitForGazebo; rosservice call /mrs_drone_spawner/spawn "1 $UAV_TYPE --pos 0 0 0.5 0 --enable-rangefinder --enable-ground-truth --enable-bluefox-camera"
-        - waitForControl; gz camera -c gzclient_camera -f $UAV_NAME; history -s gz camera -c gzclient_camera -f $UAV_NAME
+        - ros2 launch mrs_uav_gazebo_simulator simulation.launch.py world_file:=`ros2 pkg prefix mrs_precise_landing_gazebo`/share/mrs_precise_landing_gazebo/worlds/apriltag.sdf gui:=true
+        - 'waitForGazebo && sleep 2; gz topic -t /gui/track -m gz.msgs.CameraTrack -p "track_mode: 2 follow_target { name: \"$UAV_NAME\" }"'
   - status:
       layout: tiled
       panes:
-        - waitForHw; roslaunch mrs_uav_status status.launch
+        - ros2 run mrs_uav_status status.sh
+  - spawn:
+      layout: tiled
+      panes:
+        - 'waitForGazebo && ros2 service call /mrs_drone_spawner/spawn mrs_msgs/srv/String "value: 1 --$UAV_TYPE --pos 0 0 0.5 0 --enable-rangefinder --enable-ground-truth --enable-bluefox-camera"'
   - hw_api:
       layout: tiled
       panes:
-        - waitForTime; roslaunch mrs_uav_px4_api api.launch
+        - waitForGazebo && sleep 6 && ros2 launch mrs_uav_px4_api api.launch.py
   - core:
       layout: tiled
       panes:
-        - waitForHw; roslaunch mrs_uav_core core.launch
-          platform_config:=`rospack find mrs_uav_gazebo_simulation`/config/mrs_uav_system/$UAV_TYPE.yaml
+        - waitForHwApi && ros2 launch mrs_uav_core core.launch.py
+          platform_config:=`ros2 pkg prefix mrs_uav_gazebo_simulator`/share/mrs_uav_gazebo_simulator/config/mrs_uav_system/$UAV_TYPE.yaml
           custom_config:=./config/custom_config.yaml
           world_config:=./config/world_config.yaml
           network_config:=./config/network_config.yaml
   - precise_landing:
       layout: tiled
       panes:
-        - waitForTime; roslaunch mrs_precise_landing precise_landing.launch apriltag_config:=./config/apriltag.yaml camera_node:=bluefox_optflow image_topic:=image_raw estimator_config:=./config/landing_estimator.yaml controller_config:=./config/landing_controller.yaml
-        - waitForControl; rostopic echo /$UAV_NAME/ground_truth/pose/pose/position
+        - waitForCore && ros2 launch mrs_precise_landing precise_landing.launch.py apriltag_config:=./config/apriltag.yaml camera_node:=bluefox_optflow image_topic:=image_raw estimator_config:=./config/landing_estimator.yaml controller_config:=./config/landing_controller.yaml
+        - 'waitForCore && ros2 topic echo /$UAV_NAME/estimation_manager/pose/pose/position'
   - land:
       layout: tiled
       panes:
-        - 'history -s rosservice call /$UAV_NAME/precise_landing/land'
-        - 'history -s rosservice call /$UAV_NAME/control_manager/goto \"goal: \[0.0, 0.0, 4.0, 1.0\]\"'
+        - 'history -s ros2 service call /$UAV_NAME/precise_landing/land std_srvs/srv/Trigger "{}"'
   - takeoff:
       layout: tiled
       panes:
-        - waitForHw; roslaunch mrs_uav_autostart automatic_start.launch
-        - 'waitForControl; rosservice call /$UAV_NAME/hw_api/arming 1; sleep 2; rosservice call /$UAV_NAME/hw_api/offboard'
+        - waitForCore && ros2 launch mrs_uav_autostart automatic_start.launch.py
   - rviz:
       layout: tiled
       panes:
-        - waitForControl; rosrun rviz rviz -d ./rviz.rviz
-        - waitForControl; roslaunch mrs_rviz_plugins load_robot.launch
-        - waitForControl; roslaunch mrs_rviz_plugins rviz_interface.launch
+        - waitForCore && ros2 run rviz2 rviz2 -d ./rviz.rviz --ros-args -p use_sim_time:=true
   - layout:
       layout: tiled
       panes:
-        - waitForControl; sleep 3; ~/.i3/layout_manager.sh ./layout.json
+        - waitForCore && sleep 3; ~/.i3/layout_manager.sh ./layout.json
