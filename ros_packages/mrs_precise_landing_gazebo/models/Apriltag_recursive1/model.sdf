@@ -1,47 +1,32 @@
-<?xml version='1.0'?>
-<sdf version='1.6'>
+<?xml version="1.0" encoding="UTF-8"?>
+<sdf version='1.9'>
   <model name='Apriltag_recursive1'>
+    <static>true</static>
+    <pose>0 0 0.005 0 0 0</pose>
     <link name='apriltag_main'>
-    <collision name='collision'>
-      <pose>0 0 0 0 0 0</pose>
-      <geometry>
-        <box>
-          <size>0.5 0.5 0.01</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>1</mu>
-            <mu2>1</mu2>
-          </ode>
-          <torsional>
-            <ode/>
-          </torsional>
-        </friction>
-        <contact>
-          <ode/>
-        </contact>
-        <bounce/>
-      </surface>
-      <max_contacts>10</max_contacts>
-    </collision>
-    <pose frame=''>0 0 0 0 0 0</pose>
+      <collision name='collision'>
+        <geometry>
+          <box>
+            <size>0.5 0.5 0.01</size>
+          </box>
+        </geometry>
+      </collision>
       <visual name='apriltag_main_visual'>
         <geometry>
           <box>
-          <size>0.5 0.5 0.01</size>
+            <size>0.5 0.5 0.01</size>
           </box>
         </geometry>
-           <material>
-          <script>
-            <uri>model://Apriltag_recursive1/materials/scripts</uri>
-            <uri>model://Apriltag_recursive1/materials/textures</uri>
-            <name>Apriltag_recursive1</name>
-          </script>
+        <material>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>0.4 0.4 0.4 1</specular>
+          <pbr>
+            <metal>
+              <albedo_map>model://Apriltag_recursive1/materials/textures/atag_rec1.png</albedo_map>
+            </metal>
+          </pbr>
         </material>
       </visual>
-     </link>
-    <static>1</static>
+    </link>
   </model>
 </sdf>

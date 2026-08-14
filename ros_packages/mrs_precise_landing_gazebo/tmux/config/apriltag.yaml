@@ -8,9 +8,9 @@
       threads: 2
       decimate: 1.0
       blur: 0.0
-      refine: 1
+      refine: true
       sharpening: 0.25
-      debug: 0
+      debug: false
 
     pose_estimation_method: "pnp" # method for estimating tag pose
 

@@ -149,8 +149,10 @@ LandingPadEstimation::LandingPadEstimation(rclcpp::NodeOptions options) : mrs_li
   param_loader.addYamlFileFromParam("config");
 
   std::string custom_config_path;
-  if (param_loader.loadParam("custom_config", custom_config_path) && !custom_config_path.empty())
-    param_loader.addYamlFileFromParam("custom_config");
+  param_loader.loadParam("custom_config", custom_config_path);
+
+  if (custom_config_path != "")
+    param_loader.addYamlFile(custom_config_path);
 
   param_loader.loadParam("prediction_rate", _prediction_rate_);
   param_loader.loadParam("uav_name", _uav_name_);

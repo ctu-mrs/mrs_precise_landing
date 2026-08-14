@@ -4,6 +4,7 @@ project(mrs_precise_landing_gazebo)
 set(DEPENDENCIES
   ament_cmake
   ros_gz
+  mrs_gazebo_common_resources
 )
 
 foreach(DEP IN LISTS DEPENDENCIES)
@@ -25,6 +26,14 @@ install(DIRECTORY worlds/
 install(DIRECTORY tmux/
   USE_SOURCE_PERMISSIONS
   DESTINATION share/${PROJECT_NAME}/tmux
+)
+
+install(FILES environment/gz_sim_resource_path.dsv
+  DESTINATION share/${PROJECT_NAME}/environment
+)
+
+ament_environment_hooks(
+  "${CMAKE_CURRENT_SOURCE_DIR}/environment/gz_sim_resource_path.dsv"
 )
 
 ament_export_dependencies(

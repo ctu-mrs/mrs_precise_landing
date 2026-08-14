@@ -56,7 +56,7 @@ Visualization Manager:
       Line Style:
         Line Width: 0.029999999329447746
         Value: Lines
-      Name: Grid
+      Name: Grid5m
       Normal Cell Count: 0
       Offset:
         X: 0
@@ -82,91 +82,6 @@ Visualization Manager:
         {}
       Update Interval: 0
       Value: false
-    - Class: rviz_common/Group
-      Displays:
-        - Background color: 204; 204; 204
-          Class: mrs_rviz_plugins/Status
-          Computer load: true
-          Control manager: true
-          Custom strings: true
-          Enabled: true
-          Hw api state: true
-          Name: Status
-          Node stats list: false
-          Odometry: true
-          Text color: 0; 0; 0
-          Top Line: true
-          Topic rates: true
-          UAV name: uav1
-          Value: true
-      Enabled: false
-      Name: Status
-    - Class: rviz_common/Group
-      Displays:
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 6.5032958984375
-            Min Value: -0.6449446678161621
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz_default_plugins/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: AxisColor
-          Decay Time: 0
-          Enabled: true
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: ouster_raw
-          Position Transformer: XYZ
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.10000000149011612
-          Style: Spheres
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /uav1/os_cloud_nodelet/points
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: true
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz_default_plugins/LaserScan
-          Color: 0; 0; 0
-          Color Transformer: FlatColor
-          Decay Time: 0
-          Enabled: true
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Min Color: 0; 0; 0
-          Name: rplidar
-          Position Transformer: XYZ
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.10000000149011612
-          Style: Flat Squares
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /uav1/rplidar/scan
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: true
-      Enabled: true
-      Name: Sensors
     - Class: rviz_common/Group
       Displays:
         - Class: rviz_default_plugins/MarkerArray
@@ -279,27 +194,6 @@ Visualization Manager:
               Value: true
           Enabled: true
           Name: OriginalTrajectory
-        - Alpha: 0.10000000149011612
-          Class: mrs_rviz_plugins/Bumper
-          Collision alpha: 0.5
-          Collision color: 255; 0; 0
-          Color: 204; 51; 204
-          Colorize collisions: true
-          Display mode: sensor types
-          Enabled: true
-          History Length: 1
-          Horizontal collision threshold: 1
-          Name: Bumper
-          Show sectors with no data: false
-          Show undetected obstacles: true
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /uav1/bumper/obstacle_sectors
-          Value: true
-          Vertical collision threshold: 1
       Enabled: true
       Name: ControlManager
     - Class: rviz_common/Group
@@ -424,38 +318,6 @@ Visualization Manager:
           Name: PostprocessedTrajectory
       Enabled: true
       Name: MpcTracker
-    - Class: rviz_common/Group
-      Displays:
-        - Class: rviz_default_plugins/MarkerArray
-          Enabled: true
-          Name: final
-          Namespaces:
-            markers/final_lines: true
-            markers/final_points: true
-            markers/final_triangles: true
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /uav1/trajectory_generation/markers/final
-          Value: true
-        - Class: rviz_default_plugins/MarkerArray
-          Enabled: true
-          Name: original
-          Namespaces:
-            markers/original_lines: true
-            markers/original_points: true
-            markers/original_triangles: true
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /uav1/trajectory_generation/markers/original
-          Value: true
-      Enabled: true
-      Name: TrajectoryGeneration
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.10000000149011612
@@ -548,24 +410,24 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /uav1/bluefox_optflow/image_raw
+        Value: /uav1/bluefox_down/image_raw
       Value: true
       Visibility:
         ControlManager:
-          Bumper: true
           Disturbances: true
           OriginalTrajectory:
             Markers: true
             Poses: true
             Value: true
           SafetyAreaCoordinates: true
-          SafetyhArea: true
+          SafetyArea: true
           Value: false
           control_reference: true
         EstimationManager:
           Value: false
           odom_main: true
         Grid: false
+        Grid5m: false
         MpcTracker:
           MpcInnerReference: true
           MpcPredictionTrajectory: true
@@ -574,21 +436,7 @@ Visualization Manager:
             Poses: true
             Value: true
           Value: false
-        Sensors:
-          Value: false
-          ouster_raw: true
-          rplidar: true
-          vio_camera: true
-        Status:
-          Control Display: true
-          Status: true
-          Value: false
         TF: true
-        TrajectoryGeneration:
-          Value: false
-          final: true
-          original: true
-        UAVModel: false
         Value: true
         detections: false
         landing_pad_estimate: true
@@ -630,19 +478,6 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /clicked_point
-    - Class: mrs_rviz_plugins/ControlTool
-    - Class: mrs_rviz_plugins/WaypointPlanner
-      Drone name: uav1
-      Fly now: true
-      Height offset: 0
-      Loop: false
-      Shape: Axes
-      Stop at waypoints: false
-      Topic: trajectory_generation/path
-      Use heading: true
-    - Class: mrs_rviz_plugins/NamedSetGoal
-      Name: name
-      Topic: goal
   Transformation:
     Current:
       Class: rviz_default_plugins/TF

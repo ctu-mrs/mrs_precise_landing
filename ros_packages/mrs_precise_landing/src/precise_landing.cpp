@@ -240,8 +240,10 @@ PreciseLanding::PreciseLanding(rclcpp::NodeOptions options) : mrs_lib::Node("Pre
   param_loader.addYamlFileFromParam("config");
 
   std::string custom_config_path;
-  if (param_loader.loadParam("custom_config", custom_config_path) && !custom_config_path.empty())
-    param_loader.addYamlFileFromParam("custom_config");
+  param_loader.loadParam("custom_config", custom_config_path);
+
+  if (custom_config_path != "")
+    param_loader.addYamlFile(custom_config_path);
 
   // rclcpp::Time::waitForValid(); TODO: replacement?
 

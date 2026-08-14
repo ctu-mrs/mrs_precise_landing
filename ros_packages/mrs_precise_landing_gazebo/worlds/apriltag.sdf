@@ -1,14 +1,31 @@
-<?xml version="1.0" ?>
-<?xml-model href="http://sdformat.org/schemas/root.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
-<sdf version='1.7'>
+<?xml version="1.0" encoding="UTF-8"?>
+<sdf version="1.9">
+  <world name="default">
 
-  <world name='default'>
+    <!-- physics {-->
+    <physics type="ode">
+      <max_step_size>0.004</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>250</real_time_update_rate>
+    </physics>
+    <gravity>0 0 -9.8066</gravity>
+    <magnetic_field>6.0e-06 2.3e-05 -4.2e-05</magnetic_field>
+    <atmosphere type="adiabatic"/>
+    <!--}-->
 
-    <plugin name='mrs_gazebo_static_transform_republisher_plugin' filename='libMrsGazeboCommonResources_StaticTransformRepublisher.so'/>
+    <!-- scene {-->
+    <scene>
+      <grid>false</grid>
+      <ambient>0.4 0.4 0.4 1</ambient>
+      <background>0.7 0.7 0.7 1</background>
+      <shadows>false</shadows>
+    </scene>
+    <!--}-->
 
     <!-- coordinate system {-->
     <spherical_coordinates>
       <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
       <latitude_deg>47.397743</latitude_deg>
       <longitude_deg>8.545594</longitude_deg>
       <elevation>0.0</elevation>
@@ -16,64 +33,11 @@
     </spherical_coordinates>
     <!--}-->
 
-    <!-- physics engine {-->
-    <physics name="default_physics" default="0" type="ode">
-      <gravity>0 0 -9.8066</gravity>
-      <ode>
-        <solver>
-          <type>quick</type>
-          <iters>10</iters>
-          <sor>1.3</sor>
-          <use_dynamic_moi_rescaling>0</use_dynamic_moi_rescaling>
-        </solver>
-        <constraints>
-          <cfm>0</cfm>
-          <erp>0.2</erp>
-          <contact_max_correcting_vel>1000</contact_max_correcting_vel>
-          <contact_surface_layer>0.001</contact_surface_layer>
-        </constraints>
-      </ode>
-      <max_step_size>0.004</max_step_size>
-      <real_time_factor>1</real_time_factor>
-      <real_time_update_rate>250</real_time_update_rate>
-      <magnetic_field>6.0e-06 2.3e-05 -4.2e-05</magnetic_field>
-    </physics>
-    <!--}-->
-
-    <!-- setup shadows {-->
-    <scene>
-      <shadows>false</shadows>
-      <!-- <sky> -->
-      <!--   <clouds/> -->
-      <!-- </sky> -->
-    </scene>
-    <!--}-->
-
-    <!-- sun {-->
-
-    <light name='sun' type='directional'>
-      <pose frame=''>0 0 1000 0.4 0.2 0</pose>
-      <diffuse>1 1 1 1</diffuse>
-      <specular>0.6 0.6 0.6 1</specular>
-      <direction>0.1 0.1 -0.9</direction>
-      <attenuation>
-        <range>20</range>
-        <constant>0.5</constant>
-        <linear>0.01</linear>
-        <quadratic>0.001</quadratic>
-      </attenuation>
-      <cast_shadows>1</cast_shadows>
-    </light>
-
-    <!--}-->
-
     <!-- ground plane {-->
-
-    <model name='ground_plane'>
-      <static>1</static>
-      <link name='link'>
-        <collision name='collision'>
-          <pose>0 0 0 0 0 0</pose>
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
           <geometry>
             <plane>
               <normal>0 0 1</normal>
@@ -86,55 +50,57 @@
                 <mu>1</mu>
                 <mu2>1</mu2>
               </ode>
-              <torsional>
-                <ode/>
-              </torsional>
             </friction>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
           </surface>
-          <max_contacts>10</max_contacts>
         </collision>
-        <visual name='grass'>
-          <pose>0 0 0 0 0 0</pose>
-          <cast_shadows>0</cast_shadows>
+        <visual name="visual">
           <geometry>
-            <mesh>
-              <uri>file://grass_plane/meshes/grass_plane.dae</uri>
-            </mesh>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>250 250</size>
+            </plane>
           </geometry>
+          <material>
+            <ambient>0.3 0.5 0.2 1</ambient>
+            <diffuse>0.3 0.5 0.2 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
         </visual>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
       </link>
     </model>
-
     <!--}-->
 
+    <!-- sun {-->
+    <light name="sun" type="directional">
+      <pose>0 0 1000 0.4 0.2 0</pose>
+      <cast_shadows>false</cast_shadows>
+      <intensity>1</intensity>
+      <direction>0.1 0.1 -0.9</direction>
+      <diffuse>1 1 1 1</diffuse>
+      <specular>0.6 0.6 0.6 1</specular>
+      <attenuation>
+        <range>2000</range>
+        <linear>0.01</linear>
+        <constant>0.5</constant>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+    </light>
+    <!--}-->
+
+    <!-- landing pad model {-->
     <include>
       <uri>model://Apriltag_recursive1</uri>
-      <pose>1 1 1 0.10 0.10 1.2</pose>
+      <pose>0 0 0.001 0 0 0</pose>
     </include>
+    <!--}-->
 
-    <!-- user camera {-->
+    <!-- initial camera pose {-->
     <gui>
-      <camera name="camera">
-        <pose>-60 -100 30 0 0.4 0.89</pose>
+      <camera name="user_camera">
+        <pose>8 -8 6 0 0.5 2.356</pose>
       </camera>
     </gui>
     <!--}-->
 
-    <!-- GUI frame synchronization {-->
-    <plugin name="mrs_gazebo_rviz_cam_synchronizer" filename="libMrsGazeboCommonResources_RvizCameraSynchronizer.so" >
-      <target_frame_id>gazebo_user_camera</target_frame_id>
-      <world_origin_frame_id>uav1/gps_origin</world_origin_frame_id>
-      <frame_to_follow>uav1</frame_to_follow>
-    </plugin>
-    <!--}-->
-
   </world>
-
 </sdf>
