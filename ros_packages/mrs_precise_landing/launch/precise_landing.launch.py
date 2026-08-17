@@ -193,7 +193,7 @@ def generate_launch_description():
         namespace=uav_name,
         name='precise_landing_container',
         package='rclcpp_components',
-        executable='component_container_isolated',
+        executable='component_container_mt',
         output='screen',
         composable_node_descriptions=[precise_landing_node],
         parameters=[{'use_sim_time': use_sim_time}],

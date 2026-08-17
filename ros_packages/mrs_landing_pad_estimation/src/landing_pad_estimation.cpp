@@ -130,7 +130,7 @@ private:
   std::mutex                mutex_statecov_;
 
   std::shared_ptr<TimerType> timer_main_;
-  rclcpp::Time last_time_{0, 0};
+  rclcpp::Time last_time_;
   void timerMain();
 };
 
@@ -233,6 +233,10 @@ LandingPadEstimation::LandingPadEstimation(rclcpp::NodeOptions options) : mrs_li
   }
 
   transformer_.retryLookupNewest(true);
+
+  // initialize time sentinels with the correct clock type
+  last_time_            = rclcpp::Time(0, 0, clock_->get_clock_type());
+  time_last_correction_ = rclcpp::Time(0, 0, clock_->get_clock_type());
 
   // | --------------------------- lkf -------------------------- |
 
@@ -409,11 +413,11 @@ void LandingPadEstimation::publish() {
     return;
   }
 
-  if (time_last_correction == rclcpp::Time(0) || (clock_->now() - time_last_correction).seconds() > _correction_timeout_) {
+  if (time_last_correction == rclcpp::Time(0, 0, clock_->get_clock_type()) || (clock_->now() - time_last_correction).seconds() > _correction_timeout_) {
 
     RCLCPP_WARN_THROTTLE(node_->get_logger(), *clock_, 1000, "landing pad detections timeouted");
 
-    time_last_correction_ = rclcpp::Time(0);
+    time_last_correction_ = rclcpp::Time(0, 0, clock_->get_clock_type());
     mrs_lib::set_mutexed(mutex_statecov_, {}, statecov_);
 
     return;

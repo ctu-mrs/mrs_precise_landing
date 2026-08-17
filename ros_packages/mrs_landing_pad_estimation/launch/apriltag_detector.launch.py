@@ -23,6 +23,7 @@ def generate_launch_description():
 
     pkg_name = 'mrs_landing_pad_estimation'
     this_pkg_path = get_package_share_directory(pkg_name)
+    namespace = 'apriltag_detector'
 
     # #{ uav_name
 
@@ -79,27 +80,6 @@ def generate_launch_description():
 
     # #} end of image_topic
 
-    # #{ custom_config
-
-    custom_config = LaunchConfiguration('custom_config')
-    ld.add_action(DeclareLaunchArgument(
-        'custom_config',
-        default_value='',
-        description='Path to custom configuration file. The path can be absolute (starting with "/") or relative to the current working directory.',
-    ))
-
-    # behaviour:
-    #     custom_config == "" => custom_config: ""
-    #     custom_config == "/<path>" => custom_config: "/<path>"
-    #     custom_config == "<path>" => custom_config: "$(pwd)/<path>"
-    custom_config = IfElseSubstitution(
-        condition=PythonExpression(['"', custom_config, '" != "" and ', 'not "', custom_config, '".startswith("/")']),
-        if_value=PathJoinSubstitution([EnvironmentVariable('PWD'), custom_config]),
-        else_value=custom_config
-    )
-
-    # #} end of custom_config
-
     # #{ use_sim_time
 
     use_sim_time = LaunchConfiguration('use_sim_time')
@@ -111,40 +91,47 @@ def generate_launch_description():
 
     # #} end of use_sim_time
 
-    apriltag_node = ComposableNode(
+    # #{ default node
+
+    default_node = ComposableNode(
         package='apriltag_ros',
         plugin='AprilTagNode',
         namespace=uav_name,
-        name='apriltag_detector',
+        name=namespace,
+
         parameters=[
-            {'config': this_pkg_path + '/config/apriltag_recursive.yaml'},
-            {'custom_config': custom_config},
+            this_pkg_path + '/config/apriltag_recursive.yaml',
             {'use_sim_time': use_sim_time},
         ],
+
         remappings=[
             ('image_rect', [camera_node, '/', image_topic]),
             ('camera_info', [camera_node, '/camera_info']),
-            ('tag_detections', 'apriltag_detector/tag_detections'),
-            ('tag_detections_image', 'apriltag_detector/tag_detections_image'),
+            ('detections', 'apriltag_detector/tag_detections'),
         ],
         extra_arguments=[{'use_intra_process_comms': True}],
     )
 
     ld.add_action(LoadComposableNodes(
         target_container=container_name,
-        composable_node_descriptions=[apriltag_node],
+        composable_node_descriptions=[default_node],
         condition=UnlessCondition(standalone)
     ))
 
+    # #} end of default node
+
+    # #{ standalone container
+
     ld.add_action(ComposableNodeContainer(
         namespace=uav_name,
-        name='apriltag_detector_container',
+        name=namespace + '_container',
         package='rclcpp_components',
-        executable='component_container_isolated',
+        executable='component_container_mt',
         output='screen',
-        composable_node_descriptions=[apriltag_node],
-        parameters=[{'use_sim_time': use_sim_time}],
+        composable_node_descriptions=[default_node],
         condition=IfCondition(standalone)
     ))
+
+    # #} end of standalone container
 
     return ld

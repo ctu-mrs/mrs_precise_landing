@@ -371,6 +371,10 @@ PreciseLanding::PreciseLanding(rclcpp::NodeOptions options) : mrs_lib::Node("Pre
     state_machine_timer_ = std::make_shared<TimerType>(timer_opts, rclcpp::Rate(_main_rate_, clock_), std::bind(&PreciseLanding::stateMachineTimer, this));
   }
 
+  timeouter_                = rclcpp::Time(0, 0, clock_->get_clock_type());
+  aligning2_in_radius_time_ = rclcpp::Time(0, 0, clock_->get_clock_type());
+  landing_since_            = rclcpp::Time(0, 0, clock_->get_clock_type());
+
   is_initialized_ = true;
 
   RCLCPP_INFO(node_->get_logger(), "initialized");
@@ -576,7 +580,7 @@ void PreciseLanding::changeState(int newState) {
 
     case ALIGN2_STATE: {
 
-      aligning2_in_radius_time_ = rclcpp::Time(0);
+      aligning2_in_radius_time_ = rclcpp::Time(0, 0, clock_->get_clock_type());
       aligning2_in_radius_      = false;
       aligning2_current_radius_ = _aligning2_criterion_initial_radius_;
 
@@ -946,6 +950,10 @@ void PreciseLanding::disarm(void) {
 
 bool PreciseLanding::setMinZ(const double z) {
 
+  if (!sch_set_min_z.isServiceReady()) {
+    return true;
+  }
+
   auto srv = std::make_shared<mrs_msgs::srv::Float64StampedSrv::Request>();
   srv->header.frame_id = _frame_id_;
   srv->value           = z;
@@ -1039,7 +1047,7 @@ void PreciseLanding::gotoPath(const double x, const double y, const double z, co
 
 bool PreciseLanding::shouldTimeout(const double &timeout) {
 
-  if (timeouter_ == rclcpp::Time(0)) {
+  if (timeouter_ == rclcpp::Time(0, 0, clock_->get_clock_type())) {
     return false;
   }
 
@@ -1136,7 +1144,7 @@ std::optional<mrs_msgs::msg::ReferenceStamped> PreciseLanding::getTransformedUav
     auto result = transformer_->transformSingle(out, _frame_id_);
 
     if (result) {
-      result = result.value();
+      out = result.value();
     } else {
       RCLCPP_ERROR(node_->get_logger(), "could not transform UAV state to '%s'", _frame_id_.c_str());
       return {};
@@ -1409,7 +1417,7 @@ void PreciseLanding::stateMachineTimer() {
         if (aligning2_in_radius_) {
 
           aligning2_in_radius_      = false;
-          aligning2_in_radius_time_ = rclcpp::Time(0);
+          aligning2_in_radius_time_ = rclcpp::Time(0, 0, clock_->get_clock_type());
           RCLCPP_WARN(node_->get_logger(), "alignment disturbed");
         }
       }

@@ -165,7 +165,7 @@ def generate_launch_description():
         namespace=uav_name,
         name='landing_pad_estimation_container',
         package='rclcpp_components',
-        executable='component_container_isolated',
+        executable='component_container_mt',
         output='screen',
         composable_node_descriptions=[estimation_node],
         parameters=[{'use_sim_time': use_sim_time}],

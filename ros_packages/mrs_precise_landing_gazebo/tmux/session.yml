@@ -20,48 +20,51 @@ windows:
   - gazebo:
       layout: tiled
       panes:
-        - ros2 launch mrs_uav_gazebo_simulator simulation.launch.py world_file:=`ros2 pkg prefix mrs_precise_landing_gazebo`/share/mrs_precise_landing_gazebo/worlds/apriltag.sdf gui:=true
+        - ros2 launch mrs_uav_gazebo_simulator simulation.launch.py world_file:=$(ros2 pkg prefix --share mrs_precise_landing_gazebo)/worlds/apriltag.sdf gui:=true
         - 'waitForGazebo && sleep 5 && gz topic -t /gui/track -m gz.msgs.CameraTrack -p "track_mode: 2 follow_target { name: \"$UAV_NAME\" }"'
-  - status:
-      layout: tiled
-      panes:
-        - ros2 run mrs_uav_status status.sh
   - spawn:
       layout: tiled
       panes:
-        - 'waitForGazebo && sleep 4 && ros2 service call /mrs_drone_spawner/spawn mrs_msgs/srv/String "value: 1 --$UAV_TYPE --pos 0 0 0.5 0 --enable-rangefinder --enable-ground-truth --enable-bluefox-camera-down"'
+        - 'waitForGazebo && sleep 3 && ros2 service call /mrs_drone_spawner/spawn mrs_msgs/srv/String "value: 1 --$UAV_TYPE --pos 0 0 0.5 0 --enable-rangefinder --enable-ground-truth --enable-bluefox-camera-down"'
   - hw_api:
       layout: tiled
       panes:
-        - waitForGazebo && sleep 6 && ros2 launch mrs_uav_px4_api api.launch.py
+        - waitForGazebo && sleep 5 && ros2 launch mrs_uav_px4_api api.launch.py
   - core:
       layout: tiled
       panes:
         - waitForHwApi && sleep 2 && ros2 launch mrs_uav_core core.launch.py
-          platform_config:=`ros2 pkg prefix mrs_uav_gazebo_simulator`/share/mrs_uav_gazebo_simulator/config/mrs_uav_system/$UAV_TYPE.yaml
+          platform_config:=$(ros2 pkg prefix --share mrs_uav_gazebo_simulator)/config/mrs_uav_system/$UAV_TYPE.yaml
           custom_config:=./config/custom_config.yaml
           world_config:=./config/world_config.yaml
           network_config:=./config/network_config.yaml
+  - status:
+      layout: tiled
+      panes:
+        - ros2 run mrs_uav_status status.sh
+  - autostart:
+      layout: tiled
+      panes:
+        - waitForCore && ros2 launch mrs_uav_autostart automatic_start.launch.py
   - precise_landing:
       layout: tiled
       panes:
         - waitForCore && ros2 launch mrs_precise_landing precise_landing.launch.py apriltag_config:=./config/apriltag.yaml camera_node:=bluefox_down image_topic:=image_raw estimator_config:=./config/landing_estimator.yaml controller_config:=./config/landing_controller.yaml
-        - 'waitForCore && ros2 topic echo /$UAV_NAME/estimation_manager/pose/pose/position'
+        - 'waitForCore && sleep 2 && ros2 topic echo /$UAV_NAME/landing_pad_estimation/pose_estimate'
   - land:
       layout: tiled
       panes:
         - 'history -s ros2 service call /$UAV_NAME/precise_landing/land std_srvs/srv/Trigger "{}"'
-        - 'history -s ros2 service call /$UAV_NAME/control_manager/goto mrs_msgs/srv/Vec4 \"goal: \[0.0, 0.0, 4.0, 1.0\]\"'
+        - 'history -s ros2 service call /$UAV_NAME/control_manager/goto mrs_msgs/srv/Vec4 \"goal: \[1.0, 0.0, 4.0, 1.0\]\"'
   - takeoff:
       layout: tiled
       panes:
-        - waitForCore && ros2 launch mrs_uav_autostart automatic_start.launch.py
+        - waitForCore && sleep 5 && ./takeoff.sh
   - rviz:
       layout: tiled
       panes:
         - waitForCore && ros2 run rviz2 rviz2 -d ./rviz.rviz --ros-args -p use_sim_time:=$USE_SIM_TIME
-        #- waitForCore && ros2 launch mrs_rviz_plugins load_robot.launch
   - layout:
       layout: tiled
       panes:
-        - waitForCore && sleep 2; ~/.i3/layout_manager.sh ./layout.json
+        - waitForCore && sleep 2 && ~/.i3/layout_manager.sh ./layout.json
