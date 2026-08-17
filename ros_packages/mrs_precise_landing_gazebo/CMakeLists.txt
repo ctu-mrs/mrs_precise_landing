@@ -4,7 +4,6 @@ project(mrs_precise_landing_gazebo)
 set(DEPENDENCIES
   ament_cmake
   ros_gz
-  mrs_gazebo_common_resources
 )
 
 foreach(DEP IN LISTS DEPENDENCIES)

@@ -14,6 +14,7 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>ros_gz</depend>
+  <exec_depend>mrs_gazebo_common_resources</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
